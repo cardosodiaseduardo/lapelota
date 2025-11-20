@@ -3,370 +3,587 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciador de Pelada - GitHub Pages</title>
+    <title>Gestão de Pelada PRO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        .draggable-item { cursor: grab; }
+        body { font-family: 'Inter', sans-serif; }
+        .draggable-item { cursor: grab; touch-action: none; }
         .draggable-item:active { cursor: grabbing; }
-        .font-mono-nums { font-variant-numeric: tabular-nums; }
+        /* Animações */
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        .pulse-red { animation: pulse-red 2s infinite; }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+<body class="bg-gray-900 text-gray-100 min-h-screen pb-20">
 
-<div id="app" class="container mx-auto p-4 max-w-6xl">
+<div id="app" class="container mx-auto p-4 max-w-7xl">
     
-    <header class="mb-6 border-b border-slate-700 pb-4 flex justify-between items-center flex-wrap gap-4">
-        <div>
-            <h1 class="text-3xl font-bold text-emerald-400 flex items-center gap-2">
-                <i class="ph ph-soccer-ball"></i> Gerenciador de Jogos
-            </h1>
-            <p class="text-slate-400 text-sm">Controle de pagamentos, times, placar e tempo.</p>
-        </div>
-        
-        <div class="bg-slate-800 p-2 px-4 rounded-lg flex items-center gap-4 border border-slate-700">
-            <div class="flex flex-col">
-                <label class="text-[10px] text-slate-400 uppercase font-bold">Jogadores/Time</label>
-                <input type="number" v-model.number="settings.playersPerTeam" class="bg-slate-900 border border-slate-600 rounded px-2 py-1 w-16 text-center focus:outline-none focus:border-emerald-500">
+    <header class="mb-6 bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
+        <div class="flex flex-wrap justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-extrabold text-emerald-400 flex items-center gap-2">
+                    <i class="ph ph-soccer-ball"></i> Controle de Pelada
+                </h1>
+                <p class="text-xs text-gray-400">Dados salvos por 24h automaticamente.</p>
             </div>
-            <div class="h-8 w-px bg-slate-700"></div>
-            <div class="flex flex-col">
-                <label class="text-[10px] text-slate-400 uppercase font-bold">Tempo (Min)</label>
-                <input type="number" v-model.number="matchTimeInput" @change="resetTimer" class="bg-slate-900 border border-slate-600 rounded px-2 py-1 w-16 text-center focus:outline-none focus:border-emerald-500">
+            
+            <div class="flex flex-wrap gap-4 text-sm">
+                <div class="flex flex-col">
+                    <label class="text-gray-500 text-xs font-bold uppercase">Jogadores/Time</label>
+                    <select v-model.number="config.playersPerTeam" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white focus:border-emerald-500 outline-none">
+                        <option :value="5">5 (Futsal)</option>
+                        <option :value="6">6 (Society)</option>
+                        <option :value="7">7 (Society)</option>
+                        <option :value="11">11 (Campo)</option>
+                    </select>
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-gray-500 text-xs font-bold uppercase">Modo da Partida</label>
+                    <span class="font-bold text-emerald-400">{{ status.isFirstMatch ? '1ª Partida (10min)' : 'Normal (7min)' }}</span>
+                </div>
+                <button @click="resetAll" class="bg-red-900/50 hover:bg-red-800 text-red-200 px-3 py-1 rounded border border-red-700 text-xs ml-auto">
+                    Limpar Tudo
+                </button>
             </div>
         </div>
     </header>
 
-    <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <section class="lg:col-span-4 space-y-6">
-            
-            <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 shadow-lg">
-                <h2 class="font-bold text-lg mb-3 flex items-center gap-2 text-emerald-400">
-                    <i class="ph ph-user-plus"></i> Cadastro Rápido
-                </h2>
-                <div class="space-y-3">
-                    <div>
-                        <textarea v-model="input.goalkeepers" placeholder="Goleiros (um por linha)..." rows="2" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-sm focus:ring-1 focus:ring-emerald-500 outline-none placeholder-slate-600"></textarea>
-                    </div>
-                    <div>
-                        <textarea v-model="input.linePlayers" placeholder="Jogadores de linha (um por linha)..." rows="3" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-sm focus:ring-1 focus:ring-emerald-500 outline-none placeholder-slate-600"></textarea>
-                    </div>
-                    <button @click="processInput" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded transition text-sm uppercase tracking-wide">
-                        Adicionar
-                    </button>
+        <section class="lg:col-span-3 space-y-4">
+            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                <div @click="ui.showRegister = !ui.showRegister" class="p-3 bg-gray-750 cursor-pointer flex justify-between items-center hover:bg-gray-700">
+                    <h2 class="font-bold text-gray-300 flex items-center gap-2"><i class="ph ph-users"></i> Lista de Presença</h2>
+                    <i class="ph" :class="ui.showRegister ? 'ph-caret-up' : 'ph-caret-down'"></i>
                 </div>
-            </div>
-
-            <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 shadow-lg max-h-[500px] overflow-y-auto">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="font-bold text-lg">Pagantes / Lista</h2>
-                    <span class="text-xs bg-slate-700 px-2 py-1 rounded">{{ paidPlayersCount }} / {{ allPlayers.length }} Pagos</span>
+                
+                <div v-show="ui.showRegister" class="p-4 space-y-3">
+                    <textarea v-model="input.goalkeepers" placeholder="Goleiros (um por linha)..." class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-xs h-20 focus:ring-1 focus:ring-emerald-500 outline-none"></textarea>
+                    <textarea v-model="input.lines" placeholder="Linha (um por linha)..." class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-xs h-24 focus:ring-1 focus:ring-emerald-500 outline-none"></textarea>
+                    <button @click="addPlayers" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded text-sm transition">Adicionar à Lista</button>
                 </div>
 
-                <ul class="space-y-2">
-                    <li v-for="player in allPlayers" :key="player.id" class="flex items-center justify-between bg-slate-900 p-2 rounded border border-slate-700 hover:border-slate-500 transition">
-                        <div class="flex items-center gap-3">
-                            <input type="checkbox" :id="'pay-'+player.id" v-model="player.paid" class="w-5 h-5 accent-emerald-500 cursor-pointer rounded">
-                            <div class="flex flex-col">
-                                <label :for="'pay-'+player.id" class="font-medium cursor-pointer select-none text-sm" :class="{'text-emerald-400': player.paid, 'text-slate-400': !player.paid}">
-                                    {{ player.name }}
-                                </label>
-                                <span class="text-[10px] uppercase tracking-wider font-bold" :class="player.role === 'GK' ? 'text-yellow-500' : 'text-blue-400'">
-                                    {{ player.role === 'GK' ? 'Goleiro' : 'Linha' }}
-                                </span>
+                <div class="max-h-[400px] overflow-y-auto p-2 border-t border-gray-700">
+                    <div class="flex justify-between text-xs text-gray-400 px-2 mb-2">
+                        <span>Nome</span>
+                        <span>Pagou?</span>
+                    </div>
+                    <ul class="space-y-1">
+                        <li v-for="p in allPlayers" :key="p.id" class="flex items-center justify-between bg-gray-900 p-2 rounded border border-gray-700 group">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full" :class="p.role === 'GK' ? 'bg-yellow-500' : 'bg-blue-500'"></span>
+                                <span class="text-sm font-medium truncate w-32" :class="{'opacity-50': !p.paid}">{{ p.name }}</span>
                             </div>
-                        </div>
-                        <button @click="removePlayer(player.id)" class="text-slate-600 hover:text-red-500 p-1 transition"><i class="ph ph-trash"></i></button>
-                    </li>
-                    <li v-if="allPlayers.length === 0" class="text-center text-slate-600 py-4 italic text-sm">Nenhum jogador cadastrado.</li>
-                </ul>
+                            <input type="checkbox" v-model="p.paid" class="w-4 h-4 accent-emerald-500 cursor-pointer">
+                        </li>
+                    </ul>
+                    <div v-if="allPlayers.length > 0" class="mt-4 pt-2 border-t border-gray-700 text-center">
+                        <button @click="generateInitialTeams" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-2 rounded font-bold text-sm flex items-center justify-center gap-2 shadow-lg">
+                            <i class="ph ph-shuffle"></i> Sortear Início
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <section class="lg:col-span-8 space-y-4">
+        <section class="lg:col-span-6 flex flex-col gap-4">
             
-            <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 shadow-lg">
-                <div class="grid grid-cols-3 items-center">
-                    
+            <div class="bg-gray-800 rounded-xl border-2 border-emerald-500/30 shadow-2xl overflow-hidden relative">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-yellow-500 to-emerald-500 opacity-50"></div>
+                
+                <div class="p-4 grid grid-cols-3 items-center text-center relative z-10">
                     <div class="flex flex-col items-center">
-                        <h3 class="text-emerald-400 font-bold text-sm mb-1">TIME A</h3>
-                        <div class="flex items-center gap-3">
-                            <button @click="scores.a > 0 ? scores.a-- : null" class="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center"><i class="ph ph-minus"></i></button>
-                            <span class="text-4xl font-bold font-mono-nums w-12 text-center">{{ scores.a }}</span>
-                            <button @click="scores.a++" class="w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center"><i class="ph ph-plus"></i></button>
+                        <h3 class="font-bold text-emerald-400 mb-2 tracking-wider">TIME A</h3>
+                        <div class="flex items-center gap-2 bg-gray-900 rounded-lg p-1 border border-gray-700">
+                            <button @click="adjustScore('A', -1)" class="w-8 h-8 hover:bg-gray-700 rounded text-gray-400"><i class="ph ph-minus"></i></button>
+                            <span class="text-3xl font-mono font-bold w-12">{{ match.scoreA }}</span>
+                            <button @click="adjustScore('A', 1)" class="w-8 h-8 hover:bg-emerald-900 rounded text-emerald-400"><i class="ph ph-plus"></i></button>
                         </div>
                     </div>
 
-                    <div class="flex flex-col items-center justify-center border-x border-slate-700 px-4">
-                        <div class="text-5xl font-bold font-mono-nums tracking-wider mb-2" :class="{'text-red-400 animate-pulse': timer.remaining < 60 && timer.remaining > 0}">
+                    <div class="flex flex-col items-center justify-center">
+                        <div class="text-6xl font-mono font-bold tracking-widest mb-2 transition-colors" :class="{'text-red-500 animate-pulse': match.timeLeft < 60 && match.timeLeft > 0, 'text-gray-100': match.timeLeft >= 60}">
                             {{ formattedTime }}
                         </div>
-                        <div class="flex gap-2">
-                            <button @click="toggleTimer" class="px-4 py-1 rounded text-sm font-bold flex items-center gap-1 transition" :class="timer.isRunning ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-green-600 hover:bg-green-500'">
-                                <i class="ph" :class="timer.isRunning ? 'ph-pause' : 'ph-play'"></i>
-                                {{ timer.isRunning ? 'Pausar' : 'Iniciar' }}
+                        <div class="flex gap-2 mb-2">
+                            <button @click="toggleTimer" class="w-10 h-10 rounded-full flex items-center justify-center text-white transition transform hover:scale-110 shadow-lg" :class="match.timerRunning ? 'bg-yellow-600' : 'bg-green-600'">
+                                <i class="ph" :class="match.timerRunning ? 'ph-pause' : 'ph-play'"></i>
                             </button>
-                            <button @click="resetTimer" class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-sm text-slate-300" title="Resetar Tempo">
+                            <button @click="resetTimer(false)" class="w-10 h-10 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-300">
                                 <i class="ph ph-arrow-counter-clockwise"></i>
                             </button>
                         </div>
+                        <div class="text-[10px] uppercase font-bold text-gray-500 tracking-widest">
+                            Limite: {{ status.isFirstMatch ? '3 Gols / 10min' : '2 Gols / 7min' }}
+                        </div>
                     </div>
 
                     <div class="flex flex-col items-center">
-                        <h3 class="text-red-400 font-bold text-sm mb-1">TIME B</h3>
-                        <div class="flex items-center gap-3">
-                            <button @click="scores.b > 0 ? scores.b-- : null" class="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center"><i class="ph ph-minus"></i></button>
-                            <span class="text-4xl font-bold font-mono-nums w-12 text-center">{{ scores.b }}</span>
-                            <button @click="scores.b++" class="w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center"><i class="ph ph-plus"></i></button>
+                        <h3 class="font-bold text-red-400 mb-2 tracking-wider">TIME B</h3>
+                        <div class="flex items-center gap-2 bg-gray-900 rounded-lg p-1 border border-gray-700">
+                            <button @click="adjustScore('B', -1)" class="w-8 h-8 hover:bg-gray-700 rounded text-gray-400"><i class="ph ph-minus"></i></button>
+                            <span class="text-3xl font-mono font-bold w-12">{{ match.scoreB }}</span>
+                            <button @click="adjustScore('B', 1)" class="w-8 h-8 hover:bg-red-900 rounded text-red-400"><i class="ph ph-plus"></i></button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="flex justify-end">
-                <button @click="generateTeams" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold transition flex items-center gap-2 shadow-lg hover:shadow-blue-500/20">
-                    <i class="ph ph-shuffle"></i> Sortear Novos Times
+            <div class="grid grid-cols-2 gap-4 h-full">
+                <div class="bg-gray-800/50 border border-emerald-500/20 rounded-lg flex flex-col" 
+                     @dragover.prevent @drop="onDrop($event, 'teamA')">
+                    <div class="bg-emerald-900/20 p-2 border-b border-emerald-500/20 text-center">
+                        <span class="text-xs font-bold text-emerald-500 uppercase">Jogadores em Campo (A)</span>
+                    </div>
+                    <div class="p-2 flex-1 min-h-[200px] space-y-2">
+                        <player-card v-for="p in match.teamA" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamA')"></player-card>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800/50 border border-red-500/20 rounded-lg flex flex-col"
+                     @dragover.prevent @drop="onDrop($event, 'teamB')">
+                    <div class="bg-red-900/20 p-2 border-b border-red-500/20 text-center">
+                        <span class="text-xs font-bold text-red-500 uppercase">Jogadores em Campo (B)</span>
+                    </div>
+                    <div class="p-2 flex-1 min-h-[200px] space-y-2">
+                        <player-card v-for="p in match.teamB" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamB')"></player-card>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col gap-3 shadow-lg">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-400">Ação da Partida:</span>
+                    <span class="text-xs font-mono text-gray-500" v-if="status.waitingTeamsCount >= 2">Empate remove os dois</span>
+                </div>
+                <button @click="endMatch" class="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold py-3 rounded-lg shadow-lg flex items-center justify-center gap-2 text-lg transition transform active:scale-95">
+                    <i class="ph ph-whistle"></i> Encerrar & Rotacionar
                 </button>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                
-                <div class="flex flex-col gap-1">
-                    <div class="bg-slate-800/80 p-2 rounded-t border-t-4 border-emerald-500 flex justify-between items-center">
-                        <span class="font-bold text-emerald-400">Time A</span>
-                        <span class="text-xs text-slate-500">{{ game.teamA.length }}/{{ settings.playersPerTeam }}</span>
-                    </div>
-                    <div 
-                        class="bg-slate-800/40 min-h-[300px] p-2 rounded-b border border-slate-700 flex flex-col gap-2 transition-all"
-                        @dragover.prevent @drop="onDrop($event, 'teamA')"
-                        :class="{'bg-emerald-500/10 border-emerald-500/50': isDragging}"
-                    >
-                        <player-card v-for="player in game.teamA" :key="player.id" :player="player" @dragstart="onDragStart($event, player, 'teamA')"></player-card>
-                        <div v-if="game.teamA.length === 0" class="flex-1 flex items-center justify-center text-slate-600 text-sm opacity-50 border-2 border-dashed border-slate-700 rounded m-2">Arraste aqui</div>
-                    </div>
-                </div>
-
-                <div class="flex flex-col gap-1 order-last md:order-none">
-                    <div class="bg-slate-800/80 p-2 rounded-t border-t-4 border-yellow-500 flex justify-between items-center">
-                        <span class="font-bold text-yellow-400">Próximos</span>
-                        <span class="text-xs text-slate-500">{{ game.queue.length }} na fila</span>
-                    </div>
-                    <div 
-                        class="bg-slate-800/40 min-h-[300px] p-2 rounded-b border border-slate-700 flex flex-col gap-2 transition-all"
-                        @dragover.prevent @drop="onDrop($event, 'queue')"
-                        :class="{'bg-yellow-500/10 border-yellow-500/50': isDragging}"
-                    >
-                         <player-card v-for="(player, index) in game.queue" :key="player.id" :player="player" :index="index" @dragstart="onDragStart($event, player, 'queue')"></player-card>
-                         <div v-if="game.queue.length === 0" class="flex-1 flex items-center justify-center text-slate-600 text-sm opacity-50 border-2 border-dashed border-slate-700 rounded m-2">Fila Vazia</div>
-                    </div>
-                </div>
-
-                <div class="flex flex-col gap-1">
-                    <div class="bg-slate-800/80 p-2 rounded-t border-t-4 border-red-500 flex justify-between items-center">
-                        <span class="font-bold text-red-400">Time B</span>
-                        <span class="text-xs text-slate-500">{{ game.teamB.length }}/{{ settings.playersPerTeam }}</span>
-                    </div>
-                    <div 
-                        class="bg-slate-800/40 min-h-[300px] p-2 rounded-b border border-slate-700 flex flex-col gap-2 transition-all"
-                        @dragover.prevent @drop="onDrop($event, 'teamB')"
-                        :class="{'bg-red-500/10 border-red-500/50': isDragging}"
-                    >
-                        <player-card v-for="player in game.teamB" :key="player.id" :player="player" @dragstart="onDragStart($event, player, 'teamB')"></player-card>
-                        <div v-if="game.teamB.length === 0" class="flex-1 flex items-center justify-center text-slate-600 text-sm opacity-50 border-2 border-dashed border-slate-700 rounded m-2">Arraste aqui</div>
-                    </div>
-                </div>
-
-            </div>
         </section>
-    </main>
+
+        <section class="lg:col-span-3 space-y-4 flex flex-col">
+            
+            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex-shrink-0">
+                <div class="p-2 bg-gray-750 border-b border-gray-700 text-center">
+                    <h3 class="text-sm font-bold text-blue-400">Próximos Times</h3>
+                </div>
+                
+                <div class="p-2 space-y-2">
+                    <div class="bg-gray-900/50 rounded border border-gray-700/50" @dragover.prevent @drop="onDrop($event, 'nextTeam1')">
+                        <div class="px-2 py-1 text-[10px] font-bold text-gray-500 uppercase flex justify-between">
+                            <span>Próximo 1</span>
+                            <span>{{ nextTeams.team1.length }}/{{config.playersPerTeam}}</span>
+                        </div>
+                        <div class="p-1 min-h-[60px] space-y-1">
+                            <player-card v-for="p in nextTeams.team1" :key="p.id" :player="p" :mini="true" @dragstart="onDragStart($event, p, 'nextTeam1')"></player-card>
+                            <div v-if="nextTeams.team1.length === 0" class="text-[10px] text-center text-gray-600 py-2 italic">Vazio</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-900/50 rounded border border-gray-700/50" v-if="queue.length > config.playersPerTeam" @dragover.prevent @drop="onDrop($event, 'nextTeam2')">
+                        <div class="px-2 py-1 text-[10px] font-bold text-gray-500 uppercase flex justify-between">
+                            <span>Próximo 2</span>
+                            <span>{{ nextTeams.team2.length }}/{{config.playersPerTeam}}</span>
+                        </div>
+                        <div class="p-1 min-h-[60px] space-y-1">
+                            <player-card v-for="p in nextTeams.team2" :key="p.id" :player="p" :mini="true" @dragstart="onDragStart($event, p, 'nextTeam2')"></player-card>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex-1 flex flex-col min-h-[200px]">
+                <div class="p-3 bg-gray-750 border-b border-gray-700 flex justify-between items-center">
+                    <h3 class="text-sm font-bold text-yellow-400">Fila de Espera</h3>
+                    <span class="bg-gray-900 text-xs px-2 py-0.5 rounded text-gray-400">{{ queue.length }}</span>
+                </div>
+                <div class="flex-1 p-2 bg-gray-900/30 overflow-y-auto" @dragover.prevent @drop="onDrop($event, 'queue')">
+                    <div class="space-y-2 min-h-full">
+                        <player-card v-for="(p, index) in queue" :key="p.id" :player="p" :index="index + 1" @dragstart="onDragStart($event, p, 'queue')"></player-card>
+                        <div v-if="queue.length === 0" class="text-center text-gray-600 text-sm py-10 italic">
+                            Ninguém na espera
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </div>
+
 </div>
 
 <script type="text/x-template" id="player-card-template">
     <div 
-        class="draggable-item bg-slate-700 hover:bg-slate-600 p-3 rounded flex justify-between items-center shadow border-l-4 select-none transition group"
-        :class="player.role === 'GK' ? 'border-yellow-500' : 'border-blue-500'"
+        class="draggable-item bg-gray-700 hover:bg-gray-600 rounded flex justify-between items-center shadow border-l-4 select-none transition group"
+        :class="[
+            player.role === 'GK' ? 'border-yellow-500' : 'border-blue-500',
+            mini ? 'p-1' : 'p-2 mb-1'
+        ]"
         draggable="true"
     >
-        <div class="flex items-center gap-2">
-            <span v-if="typeof index !== 'undefined'" class="text-[10px] bg-slate-800 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 font-mono">{{ index + 1 }}</span>
-            <div>
-                <span class="font-bold text-sm block leading-tight">{{ player.name }}</span>
-                <span v-if="player.role === 'GK'" class="text-[10px] text-yellow-500 font-bold uppercase">Goleiro</span>
+        <div class="flex items-center gap-2 overflow-hidden">
+            <span v-if="index" class="text-[10px] font-mono bg-gray-800 w-4 h-4 flex items-center justify-center rounded text-gray-400">{{ index }}</span>
+            <div class="flex flex-col truncate">
+                <span class="font-bold text-gray-200 truncate" :class="mini ? 'text-xs' : 'text-sm'">{{ player.name }}</span>
+                <span v-if="!mini && player.role === 'GK'" class="text-[9px] text-yellow-500 uppercase font-bold leading-none">Goleiro</span>
             </div>
         </div>
-        <i class="ph ph-dots-six-vertical text-slate-500 group-hover:text-slate-300"></i>
+        <i v-if="!mini" class="ph ph-dots-six-vertical text-gray-500 group-hover:text-gray-300"></i>
     </div>
 </script>
 
 <script>
-    const { createApp, ref, reactive, computed, onUnmounted } = Vue;
+    const { createApp, reactive, ref, computed, onMounted, watch } = Vue;
 
     const app = createApp({
         setup() {
-            // --- ESTADOS ---
-            const input = reactive({ goalkeepers: '', linePlayers: '' });
-            const settings = reactive({ playersPerTeam: 5 });
-            const matchTimeInput = ref(10); // Tempo padrão em minutos
-            const allPlayers = ref([]); 
-            
-            // Estado do Jogo
-            const game = reactive({ teamA: [], teamB: [], queue: [] });
-            const scores = reactive({ a: 0, b: 0 });
-
-            // Estado do Timer
-            const timer = reactive({
-                remaining: 600,
-                isRunning: false,
-                intervalId: null
+            // --- ESTADO (STATE) ---
+            const config = reactive({
+                playersPerTeam: 5, // Padrão Futsal
+                timeFirstMatch: 10, // Minutos
+                timeNormalMatch: 7,
+                goalLimitFirst: 3,
+                goalLimitNormal: 2
             });
 
-            // Drag & Drop
-            const isDragging = ref(false);
+            const status = reactive({
+                isFirstMatch: true,
+                lastUpdate: Date.now(),
+                waitingTeamsCount: 0
+            });
+
+            const ui = reactive({ showRegister: true });
+            const input = reactive({ goalkeepers: '', lines: '' });
+            
+            // Listas de Jogadores
+            const allPlayers = ref([]); // Fonte da verdade
+            const match = reactive({ teamA: [], teamB: [], scoreA: 0, scoreB: 0, timeLeft: 600, timerRunning: false });
+            const nextTeams = reactive({ team1: [], team2: [] });
+            const queue = ref([]);
+
+            let timerInterval = null;
             let draggedItem = null;
             let sourceList = null;
 
             // --- COMPUTEDS ---
-            const paidPlayersCount = computed(() => allPlayers.value.filter(p => p.paid).length);
-            
             const formattedTime = computed(() => {
-                const m = Math.floor(timer.remaining / 60).toString().padStart(2, '0');
-                const s = (timer.remaining % 60).toString().padStart(2, '0');
+                const m = Math.floor(match.timeLeft / 60).toString().padStart(2, '0');
+                const s = (match.timeLeft % 60).toString().padStart(2, '0');
                 return `${m}:${s}`;
             });
 
-            // --- MÉTODOS ---
+            // --- PERSISTÊNCIA ---
+            const saveData = () => {
+                const data = {
+                    config, status, allPlayers: allPlayers.value, 
+                    match, nextTeams, queue: queue.value,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('futebolAppData', JSON.stringify(data));
+            };
 
-            // 1. Timer
-            const toggleTimer = () => {
-                if (timer.isRunning) {
-                    clearInterval(timer.intervalId);
-                    timer.isRunning = false;
-                } else {
-                    timer.isRunning = true;
-                    timer.intervalId = setInterval(() => {
-                        if (timer.remaining > 0) {
-                            timer.remaining--;
-                        } else {
-                            // Acabou o tempo
-                            clearInterval(timer.intervalId);
-                            timer.isRunning = false;
-                            // Opcional: Tocar um som aqui
-                            alert('Fim de jogo!'); 
-                        }
-                    }, 1000);
+            const loadData = () => {
+                const saved = localStorage.getItem('futebolAppData');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    // Regra de 24h
+                    if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
+                        Object.assign(config, data.config);
+                        Object.assign(status, data.status);
+                        Object.assign(match, data.match);
+                        Object.assign(nextTeams, data.nextTeams);
+                        allPlayers.value = data.allPlayers;
+                        queue.value = data.queue;
+                        // Se estava rodando, pausa para não bugar
+                        match.timerRunning = false;
+                    } else {
+                        localStorage.removeItem('futebolAppData');
+                    }
                 }
             };
 
-            const resetTimer = () => {
-                clearInterval(timer.intervalId);
-                timer.isRunning = false;
-                timer.remaining = matchTimeInput.value * 60;
-                // Zera o placar também ao resetar o tempo? Normalmente sim em nova partida
-                scores.a = 0;
-                scores.b = 0;
+            // --- AÇÕES BÁSICAS ---
+            const resetAll = () => {
+                if(confirm("Tem certeza? Isso apagará todos os dados.")){
+                    localStorage.removeItem('futebolAppData');
+                    location.reload();
+                }
             };
 
-            // 2. Jogadores
-            const processInput = () => {
-                const add = (text, role) => {
+            const addPlayers = () => {
+                const process = (text, role) => {
                     if(!text) return;
-                    text.split('\n').forEach(name => {
-                        const cleanName = name.trim();
-                        if(cleanName) {
+                    text.split('\n').forEach(line => {
+                        const name = line.trim();
+                        if(name) {
                             allPlayers.value.push({
                                 id: Date.now() + Math.random(),
-                                name: cleanName,
-                                role: role,
-                                paid: false
+                                name, role, paid: false // Padrão não pago
                             });
                         }
                     });
                 };
-                add(input.goalkeepers, 'GK');
-                add(input.linePlayers, 'LINE');
+                process(input.goalkeepers, 'GK');
+                process(input.lines, 'LINE');
                 input.goalkeepers = '';
-                input.linePlayers = '';
+                input.lines = '';
+                saveData();
             };
 
-            const removePlayer = (id) => {
-                allPlayers.value = allPlayers.value.filter(p => p.id !== id);
-                game.teamA = game.teamA.filter(p => p.id !== id);
-                game.teamB = game.teamB.filter(p => p.id !== id);
-                game.queue = game.queue.filter(p => p.id !== id);
+            // --- LÓGICA DE JOGO ---
+            
+            // Sorteio Inicial
+            const generateInitialTeams = () => {
+                const paid = allPlayers.value.filter(p => p.paid);
+                if(paid.length < config.playersPerTeam * 2) {
+                    alert(`Você precisa de pelo menos ${config.playersPerTeam * 2} jogadores pagos para começar.`);
+                    return;
+                }
+
+                // Separar
+                let gks = paid.filter(p => p.role === 'GK').sort(() => Math.random() - 0.5);
+                let lines = paid.filter(p => p.role === 'LINE').sort(() => Math.random() - 0.5);
+
+                const fillTeam = (targetArray) => {
+                    // 1 GK se possível
+                    if(gks.length > 0) targetArray.push(gks.pop());
+                    // Resto Linha
+                    while(targetArray.length < config.playersPerTeam && lines.length > 0) {
+                        targetArray.push(lines.pop());
+                    }
+                };
+
+                // Limpar
+                match.teamA = []; match.teamB = [];
+                nextTeams.team1 = []; nextTeams.team2 = [];
+                queue.value = [];
+
+                fillTeam(match.teamA);
+                fillTeam(match.teamB);
+                fillTeam(nextTeams.team1);
+                fillTeam(nextTeams.team2);
+
+                // Sobras para a fila
+                queue.value = [...gks, ...lines];
+
+                // Setup Timer
+                resetTimer(true);
+                ui.showRegister = false;
+                saveData();
             };
 
-            // 3. Times
-            const generateTeams = () => {
-                const paidPlayers = allPlayers.value.filter(p => p.paid);
-                let gks = paidPlayers.filter(p => p.role === 'GK');
-                let lines = paidPlayers.filter(p => p.role === 'LINE');
+            // Timer Logic
+            const toggleTimer = () => {
+                match.timerRunning = !match.timerRunning;
+                if (match.timerRunning) {
+                    timerInterval = setInterval(() => {
+                        if (match.timeLeft > 0) {
+                            match.timeLeft--;
+                            saveData(); // Salvar progresso (cuidado com performance, mas ok para local)
+                        } else {
+                            match.timerRunning = false;
+                            clearInterval(timerInterval);
+                            alert("Tempo Esgotado!");
+                        }
+                    }, 1000);
+                } else {
+                    clearInterval(timerInterval);
+                    saveData();
+                }
+            };
 
-                // Embaralhar
-                const shuffle = (arr) => arr.sort(() => Math.random() - 0.5);
-                gks = shuffle(gks);
-                lines = shuffle(lines);
+            const resetTimer = (isFirst) => {
+                clearInterval(timerInterval);
+                match.timerRunning = false;
+                status.isFirstMatch = isFirst;
+                match.timeLeft = (isFirst ? config.timeFirstMatch : config.timeNormalMatch) * 60;
+                match.scoreA = 0;
+                match.scoreB = 0;
+                saveData();
+            };
 
-                game.teamA = [];
-                game.teamB = [];
-                game.queue = [];
+            const adjustScore = (team, delta) => {
+                if(team === 'A') match.scoreA = Math.max(0, match.scoreA + delta);
+                else match.scoreB = Math.max(0, match.scoreB + delta);
+                saveData();
+            };
 
-                // Distribuir Goleiros
-                if(gks.length > 0) game.teamA.push(gks.pop());
-                if(gks.length > 0) game.teamB.push(gks.pop());
-                game.queue.push(...gks);
+            // --- LÓGICA DE ENCERRAMENTO E ROTAÇÃO (CORE) ---
+            const endMatch = () => {
+                if(!confirm("Encerrar partida e rotacionar times?")) return;
 
-                // Distribuir Linha
-                while(game.teamA.length < settings.playersPerTeam && lines.length > 0) game.teamA.push(lines.pop());
-                while(game.teamB.length < settings.playersPerTeam && lines.length > 0) game.teamB.push(lines.pop());
+                clearInterval(timerInterval);
+                match.timerRunning = false;
+
+                // 1. Definir Vencedor e Perdedor
+                let winner = null; // 'A', 'B' ou 'DRAW'
+                if (match.scoreA > match.scoreB) winner = 'A';
+                else if (match.scoreB > match.scoreA) winner = 'B';
+                else winner = 'DRAW';
+
+                const teamA_Players = [...match.teamA];
+                const teamB_Players = [...match.teamB];
                 
-                game.queue.push(...lines);
+                // Lógica para verificar se temos times completos na espera
+                // Consideramos um time "pronto" se tem pelo menos jogadoresPerTime - 1 (aceitável)
+                const next1Ready = nextTeams.team1.length >= (config.playersPerTeam - 1);
+                const next2Ready = nextTeams.team2.length >= (config.playersPerTeam - 1);
+                const waitingTeams = (next1Ready ? 1 : 0) + (next2Ready ? 1 : 0);
+                status.waitingTeamsCount = waitingTeams;
 
-                // Resetar placar e tempo ao gerar novos times
-                scores.a = 0;
-                scores.b = 0;
-                resetTimer(); 
+                // Função auxiliar: Mover array para o final da fila
+                const sendToQueue = (players) => {
+                    players.forEach(p => queue.value.push(p));
+                };
+
+                // 2. Aplicar Regras
+                if (winner === 'DRAW') {
+                    // REGRA: Empate sai os dois se tiver times na espera (assumindo que se tiver 2 times esperando, sai os 2)
+                    // Se tiver só 1 time esperando, a regra usual é "sai quem jogou a mais tempo" ou "par ou impar", 
+                    // mas o prompt diz "Sair os dois caso tenha dois times em espera".
+                    // Se não tiver 2 times, vou aplicar a regra de "Rei da Mesa" simplificada: Sai o B (desafiante) ou user decide.
+                    // Para automação total: Se empate e tem gente pra entrar, sai os dois para rodar a fila.
+                    
+                    if (waitingTeams >= 2) {
+                        sendToQueue(teamA_Players);
+                        sendToQueue(teamB_Players);
+                        match.teamA = []; 
+                        match.teamB = [];
+                    } else {
+                        // Empate sem 2 times completos fora.
+                        // Opção: Sai o Time B (arbitrário para manter fluxo) e entra o Próximo 1 ou Fila
+                        sendToQueue(teamB_Players);
+                        match.teamB = [];
+                        // Time A fica (Empate favorece quem estava, ou Time A)
+                    }
+
+                } else {
+                    // Teve vencedor
+                    const losers = winner === 'A' ? teamB_Players : teamA_Players;
+                    const winners = winner === 'A' ? teamA_Players : teamB_Players;
+
+                    sendToQueue(losers);
+                    
+                    // Vencedor assume Time A (Fica em campo)
+                    match.teamA = winners;
+                    match.teamB = []; // Vaga aberta para desafiante
+                }
+
+                // 3. Repor Times (Fill Slots)
+                
+                // Função para pegar do "Próximo Time" ou da "Fila"
+                const getNextChallenger = () => {
+                    let challenger = [];
+                    
+                    // Tenta pegar o Time Pronto 1
+                    if (nextTeams.team1.length > 0) {
+                        challenger = [...nextTeams.team1];
+                        nextTeams.team1 = []; // Esvazia o slot
+                        
+                        // Se o slot 1 esvaziou, puxa o slot 2 para o 1
+                        if (nextTeams.team2.length > 0) {
+                            nextTeams.team1 = [...nextTeams.team2];
+                            nextTeams.team2 = [];
+                        }
+                    } else {
+                        // Se não tem time pronto, monta da fila avulsa
+                        // Regra: "Aplicado regra de quem sair adicionado ao fim, para que entre nos próximos"
+                        // Isso já foi feito no sendToQueue. Agora pegamos do topo da fila (0)
+                        while (challenger.length < config.playersPerTeam && queue.value.length > 0) {
+                            challenger.push(queue.value.shift());
+                        }
+                    }
+                    return challenger;
+                };
+
+                // Se Time A saiu (empate duplo), preenche ele primeiro
+                if (match.teamA.length === 0) {
+                    match.teamA = getNextChallenger();
+                }
+
+                // Preenche Time B (Desafiante)
+                if (match.teamB.length === 0) {
+                    match.teamB = getNextChallenger();
+                }
+
+                // Verifica se faltou gente (buracos nos times) e tenta completar da fila
+                while(match.teamA.length < config.playersPerTeam && queue.value.length > 0) match.teamA.push(queue.value.shift());
+                while(match.teamB.length < config.playersPerTeam && queue.value.length > 0) match.teamB.push(queue.value.shift());
+
+                // 4. Reorganizar Próximos Times (Visual)
+                // Tenta encher o Next1 e Next2 com quem sobrou na fila para visualização
+                // (Opcional, mas bom para ver quem joga depois)
+                // Nota: A fila é a fonte da verdade, NextTeams é um buffer. 
+                // Para simplificar: NextTeams só se enche se alguém explicitamente for movido pra lá ou se refizermos a lógica.
+                // Vamos deixar a fila fluir.
+
+                // Resetar Jogo
+                resetTimer(false); // Próximas partidas são tempo normal
+                saveData();
             };
 
-            // 4. Drag & Drop
-            const onDragStart = (event, player, source) => {
+
+            // --- DRAG AND DROP ---
+            const onDragStart = (evt, player, listName) => {
                 draggedItem = player;
-                sourceList = source;
-                isDragging.value = true;
-                event.dataTransfer.effectAllowed = 'move';
+                sourceList = listName;
+                evt.dataTransfer.effectAllowed = 'move';
             };
 
-            const onDrop = (event, targetList) => {
-                isDragging.value = false;
+            const onDrop = (evt, targetList) => {
                 if (!draggedItem || sourceList === targetList) return;
 
-                const sourceArray = game[sourceList];
-                const index = sourceArray.findIndex(p => p.id === draggedItem.id);
-                if(index > -1) sourceArray.splice(index, 1);
+                // 1. Remover da origem
+                const removeFromList = (listName) => {
+                    if (listName === 'teamA') match.teamA = match.teamA.filter(p => p.id !== draggedItem.id);
+                    else if (listName === 'teamB') match.teamB = match.teamB.filter(p => p.id !== draggedItem.id);
+                    else if (listName === 'nextTeam1') nextTeams.team1 = nextTeams.team1.filter(p => p.id !== draggedItem.id);
+                    else if (listName === 'nextTeam2') nextTeams.team2 = nextTeams.team2.filter(p => p.id !== draggedItem.id);
+                    else if (listName === 'queue') queue.value = queue.value.filter(p => p.id !== draggedItem.id);
+                };
+                removeFromList(sourceList);
 
-                game[targetList].push(draggedItem);
+                // 2. Adicionar ao destino
+                // Se for para a fila, a regra diz "Final da fila" (caso de lesão/saída)
+                if (targetList === 'queue') {
+                    queue.value.push(draggedItem); 
+                } 
+                else if (targetList === 'teamA') match.teamA.push(draggedItem);
+                else if (targetList === 'teamB') match.teamB.push(draggedItem);
+                else if (targetList === 'nextTeam1') nextTeams.team1.push(draggedItem);
+                else if (targetList === 'nextTeam2') nextTeams.team2.push(draggedItem);
+
                 draggedItem = null;
-                sourceList = null;
+                saveData();
             };
 
-            // Cleanup
-            onUnmounted(() => {
-                if(timer.intervalId) clearInterval(timer.intervalId);
+            onMounted(() => {
+                loadData();
             });
 
             return {
-                input, settings, matchTimeInput, allPlayers, game, scores, timer,
-                paidPlayersCount, formattedTime,
-                processInput, removePlayer, generateTeams,
-                toggleTimer, resetTimer,
-                onDragStart, onDrop, isDragging
+                config, status, ui, input, allPlayers, match, nextTeams, queue,
+                formattedTime,
+                addPlayers, resetAll, generateInitialTeams,
+                toggleTimer, resetTimer, adjustScore, endMatch,
+                onDragStart, onDrop
             };
         }
     });
 
     app.component('player-card', {
-        props: ['player', 'index'],
+        props: ['player', 'index', 'mini'],
         template: '#player-card-template'
     });
 
