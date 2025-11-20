@@ -158,4 +158,219 @@
                         @dragover.prevent @drop="onDrop($event, 'queue')"
                         :class="{'bg-yellow-500/10 border-yellow-500/50': isDragging}"
                     >
-                         <player-card v-for="(player, index) in game.queue" :key="player.id" :player="player" :index="index" @dragstart="onDragStart($event, player, 'queue
+                         <player-card v-for="(player, index) in game.queue" :key="player.id" :player="player" :index="index" @dragstart="onDragStart($event, player, 'queue')"></player-card>
+                         <div v-if="game.queue.length === 0" class="flex-1 flex items-center justify-center text-slate-600 text-sm opacity-50 border-2 border-dashed border-slate-700 rounded m-2">Fila Vazia</div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-1">
+                    <div class="bg-slate-800/80 p-2 rounded-t border-t-4 border-red-500 flex justify-between items-center">
+                        <span class="font-bold text-red-400">Time B</span>
+                        <span class="text-xs text-slate-500">{{ game.teamB.length }}/{{ settings.playersPerTeam }}</span>
+                    </div>
+                    <div 
+                        class="bg-slate-800/40 min-h-[300px] p-2 rounded-b border border-slate-700 flex flex-col gap-2 transition-all"
+                        @dragover.prevent @drop="onDrop($event, 'teamB')"
+                        :class="{'bg-red-500/10 border-red-500/50': isDragging}"
+                    >
+                        <player-card v-for="player in game.teamB" :key="player.id" :player="player" @dragstart="onDragStart($event, player, 'teamB')"></player-card>
+                        <div v-if="game.teamB.length === 0" class="flex-1 flex items-center justify-center text-slate-600 text-sm opacity-50 border-2 border-dashed border-slate-700 rounded m-2">Arraste aqui</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+</div>
+
+<script type="text/x-template" id="player-card-template">
+    <div 
+        class="draggable-item bg-slate-700 hover:bg-slate-600 p-3 rounded flex justify-between items-center shadow border-l-4 select-none transition group"
+        :class="player.role === 'GK' ? 'border-yellow-500' : 'border-blue-500'"
+        draggable="true"
+    >
+        <div class="flex items-center gap-2">
+            <span v-if="typeof index !== 'undefined'" class="text-[10px] bg-slate-800 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 font-mono">{{ index + 1 }}</span>
+            <div>
+                <span class="font-bold text-sm block leading-tight">{{ player.name }}</span>
+                <span v-if="player.role === 'GK'" class="text-[10px] text-yellow-500 font-bold uppercase">Goleiro</span>
+            </div>
+        </div>
+        <i class="ph ph-dots-six-vertical text-slate-500 group-hover:text-slate-300"></i>
+    </div>
+</script>
+
+<script>
+    const { createApp, ref, reactive, computed, onUnmounted } = Vue;
+
+    const app = createApp({
+        setup() {
+            // --- ESTADOS ---
+            const input = reactive({ goalkeepers: '', linePlayers: '' });
+            const settings = reactive({ playersPerTeam: 5 });
+            const matchTimeInput = ref(10); // Tempo padrão em minutos
+            const allPlayers = ref([]); 
+            
+            // Estado do Jogo
+            const game = reactive({ teamA: [], teamB: [], queue: [] });
+            const scores = reactive({ a: 0, b: 0 });
+
+            // Estado do Timer
+            const timer = reactive({
+                remaining: 600,
+                isRunning: false,
+                intervalId: null
+            });
+
+            // Drag & Drop
+            const isDragging = ref(false);
+            let draggedItem = null;
+            let sourceList = null;
+
+            // --- COMPUTEDS ---
+            const paidPlayersCount = computed(() => allPlayers.value.filter(p => p.paid).length);
+            
+            const formattedTime = computed(() => {
+                const m = Math.floor(timer.remaining / 60).toString().padStart(2, '0');
+                const s = (timer.remaining % 60).toString().padStart(2, '0');
+                return `${m}:${s}`;
+            });
+
+            // --- MÉTODOS ---
+
+            // 1. Timer
+            const toggleTimer = () => {
+                if (timer.isRunning) {
+                    clearInterval(timer.intervalId);
+                    timer.isRunning = false;
+                } else {
+                    timer.isRunning = true;
+                    timer.intervalId = setInterval(() => {
+                        if (timer.remaining > 0) {
+                            timer.remaining--;
+                        } else {
+                            // Acabou o tempo
+                            clearInterval(timer.intervalId);
+                            timer.isRunning = false;
+                            // Opcional: Tocar um som aqui
+                            alert('Fim de jogo!'); 
+                        }
+                    }, 1000);
+                }
+            };
+
+            const resetTimer = () => {
+                clearInterval(timer.intervalId);
+                timer.isRunning = false;
+                timer.remaining = matchTimeInput.value * 60;
+                // Zera o placar também ao resetar o tempo? Normalmente sim em nova partida
+                scores.a = 0;
+                scores.b = 0;
+            };
+
+            // 2. Jogadores
+            const processInput = () => {
+                const add = (text, role) => {
+                    if(!text) return;
+                    text.split('\n').forEach(name => {
+                        const cleanName = name.trim();
+                        if(cleanName) {
+                            allPlayers.value.push({
+                                id: Date.now() + Math.random(),
+                                name: cleanName,
+                                role: role,
+                                paid: false
+                            });
+                        }
+                    });
+                };
+                add(input.goalkeepers, 'GK');
+                add(input.linePlayers, 'LINE');
+                input.goalkeepers = '';
+                input.linePlayers = '';
+            };
+
+            const removePlayer = (id) => {
+                allPlayers.value = allPlayers.value.filter(p => p.id !== id);
+                game.teamA = game.teamA.filter(p => p.id !== id);
+                game.teamB = game.teamB.filter(p => p.id !== id);
+                game.queue = game.queue.filter(p => p.id !== id);
+            };
+
+            // 3. Times
+            const generateTeams = () => {
+                const paidPlayers = allPlayers.value.filter(p => p.paid);
+                let gks = paidPlayers.filter(p => p.role === 'GK');
+                let lines = paidPlayers.filter(p => p.role === 'LINE');
+
+                // Embaralhar
+                const shuffle = (arr) => arr.sort(() => Math.random() - 0.5);
+                gks = shuffle(gks);
+                lines = shuffle(lines);
+
+                game.teamA = [];
+                game.teamB = [];
+                game.queue = [];
+
+                // Distribuir Goleiros
+                if(gks.length > 0) game.teamA.push(gks.pop());
+                if(gks.length > 0) game.teamB.push(gks.pop());
+                game.queue.push(...gks);
+
+                // Distribuir Linha
+                while(game.teamA.length < settings.playersPerTeam && lines.length > 0) game.teamA.push(lines.pop());
+                while(game.teamB.length < settings.playersPerTeam && lines.length > 0) game.teamB.push(lines.pop());
+                
+                game.queue.push(...lines);
+
+                // Resetar placar e tempo ao gerar novos times
+                scores.a = 0;
+                scores.b = 0;
+                resetTimer(); 
+            };
+
+            // 4. Drag & Drop
+            const onDragStart = (event, player, source) => {
+                draggedItem = player;
+                sourceList = source;
+                isDragging.value = true;
+                event.dataTransfer.effectAllowed = 'move';
+            };
+
+            const onDrop = (event, targetList) => {
+                isDragging.value = false;
+                if (!draggedItem || sourceList === targetList) return;
+
+                const sourceArray = game[sourceList];
+                const index = sourceArray.findIndex(p => p.id === draggedItem.id);
+                if(index > -1) sourceArray.splice(index, 1);
+
+                game[targetList].push(draggedItem);
+                draggedItem = null;
+                sourceList = null;
+            };
+
+            // Cleanup
+            onUnmounted(() => {
+                if(timer.intervalId) clearInterval(timer.intervalId);
+            });
+
+            return {
+                input, settings, matchTimeInput, allPlayers, game, scores, timer,
+                paidPlayersCount, formattedTime,
+                processInput, removePlayer, generateTeams,
+                toggleTimer, resetTimer,
+                onDragStart, onDrop, isDragging
+            };
+        }
+    });
+
+    app.component('player-card', {
+        props: ['player', 'index'],
+        template: '#player-card-template'
+    });
+
+    app.mount('#app');
+</script>
+</body>
+</html>
