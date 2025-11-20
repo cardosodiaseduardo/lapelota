@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Pelada - GitHub Pages</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        .draggable-item { cursor: grab; }
+        .draggable-item:active { cursor: grabbing; }
+        /* Animação suave para listas */
+        .list-enter-active, .list-leave-active { transition: all 0.3s ease; }
+        .list-enter-from, .list-leave-to { opacity: 0; transform: translateY(10px); }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+
+<div id="app" class="container mx-auto p-4 max-w-6xl">
+    
+    <header class="mb-8 border-b border-slate-700 pb-4 flex justify-between items-center flex-wrap gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-emerald-400 flex items-center gap-2">
+                <i class="ph ph-soccer-ball"></i> Gerenciador de Jogos
+            </h1>
+            <p class="text-slate-400 text-sm">Controle de pagamentos, times e substituições.</p>
+        </div>
+        
+        <div class="bg-slate-800 p-3 rounded-lg flex items-center gap-4 border border-slate-700">
+            <div class="flex flex-col">
+                <label class="text-xs text-slate-400 uppercase font-bold">Jogadores por Time</label>
+                <input type="number" v-model.number="settings.playersPerTeam" class="bg-slate-900 border border-slate-600 rounded px-2 py-1 w-20 text-center focus:outline-none focus:border-emerald-500">
+            </div>
+            <div class="text-xs text-slate-400">
+                <p v-if="settings.playersPerTeam === 5">Modo: <strong>Futsal</strong></p>
+                <p v-else-if="settings.playersPerTeam === 7">Modo: <strong>Society</strong></p>
+                <p v-else-if="settings.playersPerTeam === 11">Modo: <strong>Campo</strong></p>
+                <p v-else>Modo: <strong>Personalizado</strong></p>
+            </div>
+        </div>
+    </header>
+
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <section class="lg:col-span-4 space-y-6">
+            
+            <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 shadow-lg">
+                <h2 class="font-bold text-xl mb-4 flex items-center gap-2 text-emerald-400">
+                    <i class="ph ph-users-three"></i> Cadastro
+                </h2>
+                
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-sm font-semibold text-slate-300">Goleiros (um por linha)</label>
+                        <textarea v-model="input.goalkeepers" placeholder="Nome do Goleiro..." rows="2" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-sm focus:ring-1 focus:ring-emerald-500 outline-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="text-sm font-semibold text-slate-300">Jogadores de Linha (um por linha)</label>
+                        <textarea v-model="input.linePlayers" placeholder="Nome do Jogador..." rows="4" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-sm focus:ring-1 focus:ring-emerald-500 outline-none"></textarea>
+                    </div>
+                    <button @click="processInput" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded transition">
+                        Adicionar à Lista
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 shadow-lg max-h-[500px] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-bold text-lg">Lista Geral</h2>
+                    <span class="text-xs bg-slate-700 px-2 py-1 rounded">{{ allPlayers.length }} Pessoas</span>
+                </div>
+
+                <ul class="space-y-2">
+                    <li v-for="player in allPlayers" :key="player.id" class="flex items-center justify-between bg-slate-900 p-2 rounded border border-slate-700">
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" :id="'pay-'+player.id" v-model="player.paid" class="w-5 h-5 accent-emerald-500 cursor-pointer">
+                            <div class="flex flex-col">
+                                <label :for="'pay-'+player.id" class="font-medium cursor-pointer select-none" :class="{'text-emerald-400': player.paid, 'text-slate-400': !player.paid}">
+                                    {{ player.name }}
+                                </label>
+                                <span class="text-[10px] uppercase tracking-wider font-bold" :class="player.role === 'GK' ? 'text-yellow-500' : 'text-blue-400'">
+                                    {{ player.role === 'GK' ? 'Goleiro' : 'Linha' }}
+                                </span>
+                            </div>
+                        </div>
+                        <button @click="removePlayer(player.id)" class="text-red-500 hover:text-red-400 p-1"><i class="ph ph-trash"></i></button>
+                    </li>
+                    <li v-if="allPlayers.length === 0" class="text-center text-slate-500 py-4 italic text-sm">Nenhum jogador cadastrado.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="lg:col-span-8">
+            <div class="flex justify-between items-center mb-4 bg-slate-800 p-4 rounded-lg border border-slate-700">
+                <div>
+                    <h2 class="font-bold text-xl">Gerenciamento da Partida</h2>
+                    <p class="text-xs text-slate-400">Arraste os jogadores para organizar ou substituir.</p>
+                </div>
+                <button @click="generateTeams" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded font-bold transition flex items-center gap-2">
+                    <i class="ph ph-shuffle"></i> Gerar Times (Pagantes)
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                
+                <div class="flex flex-col gap-2">
+                    <h3 class="text-center font-bold text-emerald-400 bg-slate-800 py-2 rounded-t border-t border-l border-r border-slate-700">Time A</h3>
+                    <div 
+                        class="bg-slate-800/50 min-h-[300px] p-2 rounded-b border border-slate-700 flex flex-col gap-2 transition-colors"
+                        @dragover.prevent @drop="onDrop($event, 'teamA')"
+                        :class="{'bg-emerald-900/20': isDragging}"
+                    >
+                        <player-card v-for="player in game.teamA" :key="player.id" :player="player" @dragstart="onDragStart($event, player, 'teamA')"></player-card>
+                        <div v-if="game.teamA.length === 0" class="text-center text-slate-600 text-sm mt-10">Vazio</div>
+                    </div>
+                    <div class="text-center font-mono text-sm text-slate-500">{{ game.teamA.length }} / {{ settings.playersPerTeam }}</div>
+                </div>
+
+                <div class="flex flex-col gap-2 order-last md:order-none">
+                    <h3 class="text-center font-bold text-yellow-400 bg-slate-800 py-2 rounded-t border-t border-l border-r border-slate-700">Próximos / Banco</h3>
+                    <div 
+                        class="bg-slate-800/50 min-h-[300px] p-2 rounded-b border border-slate-700 flex flex-col gap-2"
+                        @dragover.prevent @drop="onDrop($event, 'queue')"
+                    >
+                         <player-card v-for="player in game.queue" :key="player.id" :player="player" @dragstart="onDragStart($event, player, 'queue')"></player-card>
+                         <div v-if="game.queue.length === 0" class="text-center text-slate-600 text-sm mt-10">Fila vazia</div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <h3 class="text-center font-bold text-red-400 bg-slate-800 py-2 rounded-t border-t border-l border-r border-slate-700">Time B</h3>
+                    <div 
+                        class="bg-slate-800/50 min-h-[300px] p-2 rounded-b border border-slate-700 flex flex-col gap-2 transition-colors"
+                        @dragover.prevent @drop="onDrop($event, 'teamB')"
+                        :class="{'bg-red-900/20': isDragging}"
+                    >
+                        <player-card v-for="player in game.teamB" :key="player.id" :player="player" @dragstart="onDragStart($event, player, 'teamB')"></player-card>
+                        <div v-if="game.teamB.length === 0" class="text-center text-slate-600 text-sm mt-10">Vazio</div>
+                    </div>
+                    <div class="text-center font-mono text-sm text-slate-500">{{ game.teamB.length }} / {{ settings.playersPerTeam }}</div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+</div>
+
+<script type="text/x-template" id="player-card-template">
+    <div 
+        class="draggable-item bg-slate-700 hover:bg-slate-600 p-2 rounded flex justify-between items-center shadow border-l-4 select-none"
+        :class="player.role === 'GK' ? 'border-yellow-500' : 'border-blue-500'"
+        draggable="true"
+    >
+        <div>
+            <span class="font-bold text-sm">{{ player.name }}</span>
+            <span v-if="player.role === 'GK'" class="ml-2 text-[10px] bg-yellow-500 text-black px-1 rounded font-bold">GK</span>
+        </div>
+        <i class="ph ph-dots-six-vertical text-slate-400 cursor-grab"></i>
+    </div>
+</script>
+
+<script>
+    const { createApp, ref, reactive, computed } = Vue;
+
+    const app = createApp({
+        setup() {
+            // Estado
+            const input = reactive({ goalkeepers: '', linePlayers: '' });
+            const settings = reactive({ playersPerTeam: 5 }); // 5 para Futsal
+            const allPlayers = ref([]); // Todos os cadastrados
+            const game = reactive({
+                teamA: [],
+                teamB: [],
+                queue: []
+            });
+            
+            // Controle de Drag & Drop
+            const isDragging = ref(false);
+            let draggedItem = null;
+            let sourceList = null;
+
+            // Lógica: Processar entrada de texto
+            const processInput = () => {
+                const add = (text, role) => {
+                    if(!text) return;
+                    text.split('\n').forEach(name => {
+                        const cleanName = name.trim();
+                        if(cleanName) {
+                            allPlayers.value.push({
+                                id: Date.now() + Math.random(),
+                                name: cleanName,
+                                role: role,
+                                paid: false
+                            });
+                        }
+                    });
+                };
+                add(input.goalkeepers, 'GK');
+                add(input.linePlayers, 'LINE');
+                
+                // Limpar inputs
+                input.goalkeepers = '';
+                input.linePlayers = '';
+            };
+
+            const removePlayer = (id) => {
+                allPlayers.value = allPlayers.value.filter(p => p.id !== id);
+                // Remover também das listas de jogo se estiver lá
+                game.teamA = game.teamA.filter(p => p.id !== id);
+                game.teamB = game.teamB.filter(p => p.id !== id);
+                game.queue = game.queue.filter(p => p.id !== id);
+            };
+
+            // Lógica: Gerar Times
+            const generateTeams = () => {
+                // 1. Filtrar pagantes
+                const paidPlayers = allPlayers.value.filter(p => p.paid);
+                
+                // 2. Separar por posição
+                let gks = paidPlayers.filter(p => p.role === 'GK');
+                let lines = paidPlayers.filter(p => p.role === 'LINE');
+
+                // 3. Embaralhar (Fisher-Yates Shuffle)
+                const shuffle = (arr) => arr.sort(() => Math.random() - 0.5);
+                gks = shuffle(gks);
+                lines = shuffle(lines);
+
+                // 4. Limpar estado atual do jogo
+                game.teamA = [];
+                game.teamB = [];
+                game.queue = [];
+
+                // 5. Distribuir Goleiros (Prioridade: 1 em cada time)
+                if(gks.length > 0) game.teamA.push(gks.pop());
+                if(gks.length > 0) game.teamB.push(gks.pop());
+                // Goleiros restantes vão para a fila (início)
+                game.queue.push(...gks);
+
+                // 6. Distribuir Linha
+                const slotsPerTeam = settings.playersPerTeam - 1; // -1 por causa do goleiro
+
+                // Preencher Time A
+                while(game.teamA.length < settings.playersPerTeam && lines.length > 0) {
+                    // Verifica se precisa de goleiro e não tem (caso raro de só ter linha)
+                    game.teamA.push(lines.pop()); 
+                }
+                // Preencher Time B
+                while(game.teamB.length < settings.playersPerTeam && lines.length > 0) {
+                    game.teamB.push(lines.pop());
+                }
+
+                // Resto vai para a fila
+                game.queue.push(...lines);
+            };
+
+            // Lógica: Drag & Drop
+            const onDragStart = (event, player, source) => {
+                draggedItem = player;
+                sourceList = source;
+                isDragging.value = true;
+                event.dataTransfer.effectAllowed = 'move';
+            };
+
+            const onDrop = (event, targetList) => {
+                isDragging.value = false;
+                if (!draggedItem || sourceList === targetList) return;
+
+                // Remover da origem
+                const sourceArray = game[sourceList];
+                const index = sourceArray.findIndex(p => p.id === draggedItem.id);
+                if(index > -1) sourceArray.splice(index, 1);
+
+                // Adicionar ao destino
+                // Se for para a fila, vai para o final (regra de negócio: machucou/saiu -> final da fila)
+                // Mas se quiser permitir furar fila, basta mudar para unshift ou usar a posição do drop (mais complexo)
+                // Aqui usaremos push (final) por padrão
+                game[targetList].push(draggedItem);
+
+                draggedItem = null;
+                sourceList = null;
+            };
+
+            return {
+                input, settings, allPlayers, game, 
+                processInput, removePlayer, generateTeams,
+                onDragStart, onDrop, isDragging
+            };
+        }
+    });
+
+    app.component('player-card', {
+        props: ['player'],
+        template: '#player-card-template'
+    });
+
+    app.mount('#app');
+</script>
+</body>
+</html>
