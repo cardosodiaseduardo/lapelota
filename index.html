@@ -58,23 +58,32 @@
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
         
         <section class="lg:col-span-3 space-y-2">
-            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <div @click="ui.showRegister = !ui.showRegister" class="p-2 bg-gray-750 cursor-pointer flex justify-between items-center hover:bg-gray-700 transition">
+            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col h-full max-h-[600px]">
+                <div @click="ui.showRegister = !ui.showRegister" class="p-2 bg-gray-750 cursor-pointer flex justify-between items-center hover:bg-gray-700 transition border-b border-gray-700">
                     <h2 class="font-bold text-gray-300 flex items-center gap-2 text-xs"><i class="ph ph-users"></i> Lista de Presença</h2>
                     <i class="ph" :class="ui.showRegister ? 'ph-caret-up' : 'ph-caret-down'"></i>
                 </div>
                 
-                <div v-show="ui.showRegister" class="p-2 space-y-2 border-b border-gray-700">
+                <div v-show="ui.showRegister" class="p-2 space-y-2 border-b border-gray-700 bg-gray-800">
                     <textarea v-model="input.goalkeepers" placeholder="Goleiros (um por linha)..." class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-[10px] h-14 focus:ring-1 focus:ring-emerald-500 outline-none"></textarea>
                     <textarea v-model="input.lines" placeholder="Linha (um por linha)..." class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-[10px] h-20 focus:ring-1 focus:ring-emerald-500 outline-none"></textarea>
                     <button @click="addPlayers" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1 rounded text-[10px] uppercase tracking-wide transition">Adicionar</button>
                 </div>
 
-                <div class="max-h-[350px] overflow-y-auto p-2">
-                    <div class="flex justify-between text-[9px] text-gray-500 px-2 mb-1 uppercase font-bold">
-                        <span>Nome</span>
-                        <span>Pago</span>
-                    </div>
+                <div class="px-2 py-1 bg-gray-750 border-b border-gray-700 flex justify-between items-center shrink-0">
+                    <span class="text-[9px] uppercase font-bold text-gray-500">Jogadores ({{allPlayers.length}})</span>
+                    
+                    <button 
+                        @click="markAllPaid" 
+                        class="bg-emerald-900/40 border border-emerald-600/50 hover:bg-emerald-800 text-emerald-400 text-[9px] px-2 py-0.5 rounded flex items-center gap-1 transition shadow-sm"
+                        title="Marcar todos como pagos"
+                    >
+                        <span>Todos Pagos</span>
+                        <i class="ph ph-check-double text-xs"></i>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-2 bg-gray-800">
                     <ul class="space-y-1">
                         <li v-for="(p, idx) in allPlayers" :key="p.id" class="flex items-center justify-between bg-gray-900 p-1.5 rounded border border-gray-700 group hover:border-gray-500 transition">
                             <div class="flex items-center gap-2 overflow-hidden">
@@ -84,12 +93,14 @@
                             </div>
                             <input type="checkbox" v-model="p.paid" class="w-3.5 h-3.5 accent-emerald-500 cursor-pointer rounded">
                         </li>
+                        <li v-if="allPlayers.length === 0" class="text-center text-gray-600 text-[10px] py-4 italic">Lista vazia</li>
                     </ul>
-                    <div v-if="allPlayers.length > 0" class="mt-2 pt-2 border-t border-gray-700 text-center">
-                        <button @click="generateInitialTeams" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-1.5 rounded font-bold text-[10px] flex items-center justify-center gap-2 shadow hover:shadow-lg transition">
-                            <i class="ph ph-list-numbers"></i> Gerar Times
-                        </button>
-                    </div>
+                </div>
+                
+                <div class="p-2 border-t border-gray-700 bg-gray-800 shrink-0">
+                     <button @click="generateInitialTeams" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-2 rounded font-bold text-[10px] flex items-center justify-center gap-2 shadow hover:shadow-lg transition">
+                        <i class="ph ph-list-numbers"></i> Gerar Times (Ordem)
+                    </button>
                 </div>
             </div>
         </section>
@@ -340,6 +351,13 @@
                 saveData();
             };
 
+            const markAllPaid = () => {
+                if(confirm("Marcar TODOS os jogadores listados como PAGOS?")) {
+                    allPlayers.value.forEach(p => p.paid = true);
+                    saveData();
+                }
+            };
+
             // GERAÇÃO SEQUENCIAL
             const generateInitialTeams = () => {
                 const paid = allPlayers.value.filter(p => p.paid);
@@ -513,7 +531,7 @@
             return {
                 config, status, ui, input, allPlayers, match, nextTeams, queue,
                 formattedTime,
-                addPlayers, resetAll, generateInitialTeams,
+                addPlayers, resetAll, generateInitialTeams, markAllPaid,
                 toggleTimer, resetTimer, adjustScore, endMatch,
                 onDragStart, onDrop
             };
