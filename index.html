@@ -24,69 +24,70 @@
 
 <div id="app" class="container mx-auto p-2 max-w-7xl">
     
-    <header class="mb-4 bg-gray-800 p-3 rounded-xl shadow-lg border border-gray-700">
-        <div class="flex flex-wrap justify-between items-center gap-3">
+    <header class="mb-3 bg-gray-800 p-2 rounded-xl shadow-lg border border-gray-700">
+        <div class="flex flex-wrap justify-between items-center gap-2">
             <div>
-                <h1 class="text-xl font-extrabold text-emerald-400 flex items-center gap-2">
-                    <i class="ph ph-soccer-ball"></i> Controle de Pelada
+                <h1 class="text-lg font-extrabold text-emerald-400 flex items-center gap-2">
+                    <i class="ph ph-soccer-ball"></i> Gestão de Pelada
                 </h1>
                 <p class="text-[10px] text-gray-400">Ordem da lista (Sem sorteio)</p>
             </div>
             
-            <div class="flex flex-wrap gap-2 text-xs">
+            <div class="flex flex-wrap gap-2 text-xs items-center">
                 <div class="flex flex-col">
-                    <label class="text-gray-500 text-[10px] font-bold uppercase">Jogadores/Time</label>
-                    <select v-model.number="config.playersPerTeam" class="bg-gray-700 border border-gray-600 rounded px-2 py-0.5 text-white focus:border-emerald-500 outline-none text-xs">
+                    <label class="text-gray-500 text-[9px] font-bold uppercase">Jogadores/Time</label>
+                    <select v-model.number="config.playersPerTeam" class="bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-white focus:border-emerald-500 outline-none text-[10px]">
                         <option :value="5">5 (Futsal)</option>
                         <option :value="6">6 (Society)</option>
                         <option :value="7">7 (Society)</option>
                         <option :value="11">11 (Campo)</option>
                     </select>
                 </div>
+                <div class="h-6 w-px bg-gray-600 mx-1"></div>
                 <div class="flex flex-col">
-                    <label class="text-gray-500 text-[10px] font-bold uppercase">Modo</label>
-                    <span class="font-bold text-emerald-400 text-xs">{{ status.isFirstMatch ? '1ª Partida (10min)' : 'Normal (7min)' }}</span>
+                    <label class="text-gray-500 text-[9px] font-bold uppercase">Modo Atual</label>
+                    <span class="font-bold text-emerald-400 text-[10px]">{{ status.isFirstMatch ? '1ª (10min)' : 'Normal (7min)' }}</span>
                 </div>
-                <button @click="resetAll" class="bg-red-900/50 hover:bg-red-800 text-red-200 px-2 py-0.5 rounded border border-red-700 text-[10px] ml-auto h-8 self-end">
+                <button @click="resetAll" class="bg-red-900/50 hover:bg-red-800 text-red-200 px-2 py-1 rounded border border-red-700 text-[10px] ml-auto">
                     Limpar
                 </button>
             </div>
         </div>
     </header>
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
         
-        <section class="lg:col-span-3 space-y-3">
+        <section class="lg:col-span-3 space-y-2">
             <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <div @click="ui.showRegister = !ui.showRegister" class="p-2 bg-gray-750 cursor-pointer flex justify-between items-center hover:bg-gray-700">
-                    <h2 class="font-bold text-gray-300 flex items-center gap-2 text-sm"><i class="ph ph-users"></i> Lista de Presença</h2>
+                <div @click="ui.showRegister = !ui.showRegister" class="p-2 bg-gray-750 cursor-pointer flex justify-between items-center hover:bg-gray-700 transition">
+                    <h2 class="font-bold text-gray-300 flex items-center gap-2 text-xs"><i class="ph ph-users"></i> Lista de Presença</h2>
                     <i class="ph" :class="ui.showRegister ? 'ph-caret-up' : 'ph-caret-down'"></i>
                 </div>
                 
-                <div v-show="ui.showRegister" class="p-2 space-y-2">
-                    <textarea v-model="input.goalkeepers" placeholder="Goleiros (um por linha)..." class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-[11px] h-16 focus:ring-1 focus:ring-emerald-500 outline-none"></textarea>
-                    <textarea v-model="input.lines" placeholder="Linha (um por linha)..." class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-[11px] h-20 focus:ring-1 focus:ring-emerald-500 outline-none"></textarea>
-                    <button @click="addPlayers" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 rounded text-xs transition">Adicionar</button>
+                <div v-show="ui.showRegister" class="p-2 space-y-2 border-b border-gray-700">
+                    <textarea v-model="input.goalkeepers" placeholder="Goleiros (um por linha)..." class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-[10px] h-14 focus:ring-1 focus:ring-emerald-500 outline-none"></textarea>
+                    <textarea v-model="input.lines" placeholder="Linha (um por linha)..." class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-[10px] h-20 focus:ring-1 focus:ring-emerald-500 outline-none"></textarea>
+                    <button @click="addPlayers" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1 rounded text-[10px] uppercase tracking-wide transition">Adicionar</button>
                 </div>
 
-                <div class="max-h-[350px] overflow-y-auto p-2 border-t border-gray-700">
-                    <div class="flex justify-between text-[10px] text-gray-400 px-2 mb-1">
+                <div class="max-h-[350px] overflow-y-auto p-2">
+                    <div class="flex justify-between text-[9px] text-gray-500 px-2 mb-1 uppercase font-bold">
                         <span>Nome</span>
-                        <span>Pagou?</span>
+                        <span>Pago</span>
                     </div>
                     <ul class="space-y-1">
-                        <li v-for="(p, idx) in allPlayers" :key="p.id" class="flex items-center justify-between bg-gray-900 p-1.5 rounded border border-gray-700 group">
-                            <div class="flex items-center gap-2">
-                                <span class="text-[9px] text-gray-500 w-3">{{ idx + 1 }}</span>
-                                <span class="w-1.5 h-1.5 rounded-full" :class="p.role === 'GK' ? 'bg-yellow-500' : 'bg-blue-500'"></span>
-                                <span class="text-xs font-medium truncate w-24" :class="{'opacity-50': !p.paid}">{{ p.name }}</span>
+                        <li v-for="(p, idx) in allPlayers" :key="p.id" class="flex items-center justify-between bg-gray-900 p-1.5 rounded border border-gray-700 group hover:border-gray-500 transition">
+                            <div class="flex items-center gap-2 overflow-hidden">
+                                <span class="text-[9px] text-gray-500 font-mono w-3 text-right">{{ idx + 1 }}</span>
+                                <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="p.role === 'GK' ? 'bg-yellow-500' : 'bg-blue-500'"></span>
+                                <span class="text-[11px] font-medium truncate" :class="{'opacity-50': !p.paid}">{{ p.name }}</span>
                             </div>
-                            <input type="checkbox" v-model="p.paid" class="w-3.5 h-3.5 accent-emerald-500 cursor-pointer">
+                            <input type="checkbox" v-model="p.paid" class="w-3.5 h-3.5 accent-emerald-500 cursor-pointer rounded">
                         </li>
                     </ul>
                     <div v-if="allPlayers.length > 0" class="mt-2 pt-2 border-t border-gray-700 text-center">
-                        <button @click="generateInitialTeams" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-1.5 rounded font-bold text-xs flex items-center justify-center gap-2 shadow-lg">
-                            <i class="ph ph-list-numbers"></i> Gerar pela Ordem
+                        <button @click="generateInitialTeams" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-1.5 rounded font-bold text-[10px] flex items-center justify-center gap-2 shadow hover:shadow-lg transition">
+                            <i class="ph ph-list-numbers"></i> Gerar Times
                         </button>
                     </div>
                 </div>
@@ -95,102 +96,105 @@
 
         <section class="lg:col-span-6 flex flex-col gap-3">
             
-            <div class="bg-gray-800 rounded-xl border-2 border-emerald-500/30 shadow-xl overflow-hidden relative">
-                <div class="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-emerald-500 via-yellow-500 to-emerald-500 opacity-50"></div>
+            <div class="bg-gray-800 rounded-xl border border-gray-600 shadow-xl relative z-0">
+                <div class="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-emerald-500 via-yellow-500 to-emerald-500 opacity-60"></div>
                 
-                <div class="p-3 grid grid-cols-3 items-center text-center relative z-10">
-                    <div class="flex flex-col items-center">
-                        <h3 class="font-bold text-emerald-400 mb-1 tracking-wider text-xs">TIME A</h3>
-                        <div class="flex items-center gap-1 bg-gray-900 rounded p-0.5 border border-gray-700">
-                            <button @click="adjustScore('A', -1)" class="w-6 h-6 hover:bg-gray-700 rounded text-gray-400 flex items-center justify-center"><i class="ph ph-minus"></i></button>
-                            <span class="text-2xl font-mono-nums font-bold w-8 text-center">{{ match.scoreA }}</span>
-                            <button @click="adjustScore('A', 1)" class="w-6 h-6 hover:bg-emerald-900 rounded text-emerald-400 flex items-center justify-center"><i class="ph ph-plus"></i></button>
+                <div class="p-2 flex items-center justify-between relative z-10">
+                    
+                    <div class="flex flex-col items-center w-1/3">
+                        <h3 class="font-bold text-emerald-400 mb-1 tracking-wider text-[10px]">TIME A</h3>
+                        <div class="flex items-center gap-1 bg-gray-900/80 rounded p-1 border border-gray-700 shadow-sm">
+                            <button @click="adjustScore('A', -1)" class="w-6 h-6 hover:bg-gray-700 rounded text-gray-400 flex items-center justify-center active:scale-95 transition"><i class="ph ph-minus font-bold"></i></button>
+                            <span class="text-xl font-mono-nums font-bold w-6 text-center text-white">{{ match.scoreA }}</span>
+                            <button @click="adjustScore('A', 1)" class="w-6 h-6 hover:bg-emerald-900 rounded text-emerald-400 flex items-center justify-center active:scale-95 transition"><i class="ph ph-plus font-bold"></i></button>
                         </div>
                     </div>
 
-                    <div class="flex flex-col items-center justify-center">
-                        <div class="text-5xl font-mono-nums font-bold tracking-widest mb-2 transition-colors leading-none" :class="{'text-red-500 animate-pulse': match.timeLeft < 60 && match.timeLeft > 0, 'text-gray-100': match.timeLeft >= 60}">
+                    <div class="flex flex-col items-center justify-center w-1/3 z-20">
+                        <div class="text-4xl font-mono-nums font-bold tracking-widest mb-1 transition-colors leading-none drop-shadow-md" :class="{'text-red-500 animate-pulse': match.timeLeft < 60 && match.timeLeft > 0, 'text-white': match.timeLeft >= 60}">
                             {{ formattedTime }}
                         </div>
-                        <div class="flex gap-2 mb-4">
-                            <button @click="toggleTimer" class="w-8 h-8 rounded-full flex items-center justify-center text-white transition transform hover:scale-105 shadow-lg" :class="match.timerRunning ? 'bg-yellow-600' : 'bg-green-600'">
-                                <i class="ph" :class="match.timerRunning ? 'ph-pause' : 'ph-play'"></i>
+                        <div class="flex gap-2 mb-1">
+                            <button @click="toggleTimer" class="w-7 h-7 rounded-full flex items-center justify-center text-white transition transform hover:scale-110 shadow-lg border border-white/10" :class="match.timerRunning ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-emerald-600 hover:bg-emerald-500'">
+                                <i class="ph text-xs" :class="match.timerRunning ? 'ph-pause-fill' : 'ph-play-fill'"></i>
                             </button>
-                            <button @click="resetTimer(false)" class="w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-300">
-                                <i class="ph ph-arrow-counter-clockwise"></i>
+                            <button @click="resetTimer(false)" class="w-7 h-7 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-300 border border-gray-600 transition" title="Reiniciar">
+                                <i class="ph ph-arrow-counter-clockwise text-xs"></i>
                             </button>
                         </div>
-                        <div class="text-[9px] uppercase font-bold text-gray-500 tracking-widest">
+                        <div class="text-[8px] uppercase font-bold text-gray-500 tracking-widest">
                             {{ status.isFirstMatch ? 'Meta: 3 Gols' : 'Meta: 2 Gols' }}
                         </div>
                     </div>
 
-                    <div class="flex flex-col items-center">
-                        <h3 class="font-bold text-red-400 mb-1 tracking-wider text-xs">TIME B</h3>
-                        <div class="flex items-center gap-1 bg-gray-900 rounded p-0.5 border border-gray-700">
-                            <button @click="adjustScore('B', -1)" class="w-6 h-6 hover:bg-gray-700 rounded text-gray-400 flex items-center justify-center"><i class="ph ph-minus"></i></button>
-                            <span class="text-2xl font-mono-nums font-bold w-8 text-center">{{ match.scoreB }}</span>
-                            <button @click="adjustScore('B', 1)" class="w-6 h-6 hover:bg-red-900 rounded text-red-400 flex items-center justify-center"><i class="ph ph-plus"></i></button>
+                    <div class="flex flex-col items-center w-1/3">
+                        <h3 class="font-bold text-red-400 mb-1 tracking-wider text-[10px]">TIME B</h3>
+                        <div class="flex items-center gap-1 bg-gray-900/80 rounded p-1 border border-gray-700 shadow-sm">
+                            <button @click="adjustScore('B', -1)" class="w-6 h-6 hover:bg-gray-700 rounded text-gray-400 flex items-center justify-center active:scale-95 transition"><i class="ph ph-minus font-bold"></i></button>
+                            <span class="text-xl font-mono-nums font-bold w-6 text-center text-white">{{ match.scoreB }}</span>
+                            <button @click="adjustScore('B', 1)" class="w-6 h-6 hover:bg-red-900 rounded text-red-400 flex items-center justify-center active:scale-95 transition"><i class="ph ph-plus font-bold"></i></button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3 h-full">
-                <div class="bg-gray-800/50 border border-emerald-500/20 rounded-lg flex flex-col" 
+                <div class="bg-gray-800/60 border border-emerald-500/20 rounded-lg flex flex-col shadow-inner" 
                      @dragover.prevent @drop="onDrop($event, 'teamA')">
                     <div class="bg-emerald-900/20 p-1.5 border-b border-emerald-500/20 text-center">
-                        <span class="text-[10px] font-bold text-emerald-500 uppercase">Em Campo (A)</span>
+                        <span class="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">Em Campo (A)</span>
                     </div>
-                    <div class="p-1.5 flex-1 min-h-[150px] space-y-1">
+                    <div class="p-1.5 flex-1 min-h-[140px] space-y-1">
                         <player-card v-for="p in match.teamA" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamA')"></player-card>
+                        <div v-if="match.teamA.length === 0" class="h-full flex items-center justify-center opacity-20 text-[10px]">Arrastar Jogador</div>
                     </div>
                 </div>
 
-                <div class="bg-gray-800/50 border border-red-500/20 rounded-lg flex flex-col"
+                <div class="bg-gray-800/60 border border-red-500/20 rounded-lg flex flex-col shadow-inner"
                      @dragover.prevent @drop="onDrop($event, 'teamB')">
                     <div class="bg-red-900/20 p-1.5 border-b border-red-500/20 text-center">
-                        <span class="text-[10px] font-bold text-red-500 uppercase">Em Campo (B)</span>
+                        <span class="text-[9px] font-bold text-red-500 uppercase tracking-widest">Em Campo (B)</span>
                     </div>
-                    <div class="p-1.5 flex-1 min-h-[150px] space-y-1">
+                    <div class="p-1.5 flex-1 min-h-[140px] space-y-1">
                         <player-card v-for="p in match.teamB" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamB')"></player-card>
+                        <div v-if="match.teamB.length === 0" class="h-full flex items-center justify-center opacity-20 text-[10px]">Arrastar Jogador</div>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-gray-800 p-3 rounded-xl border border-gray-700 flex flex-col gap-2 shadow-lg">
-                <div class="flex justify-between items-center px-1">
-                    <span class="text-xs text-gray-400">Status:</span>
-                    <span class="text-[10px] font-mono text-gray-500" v-if="status.waitingTeamsCount >= 2">Empate = remove ambos</span>
-                </div>
-                <button @click="endMatch" class="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold py-2.5 rounded-lg shadow-lg flex items-center justify-center gap-2 text-sm transition transform active:scale-95">
-                    <i class="ph ph-whistle"></i> Encerrar & Rotacionar
+            <div class="bg-gray-800 p-2 rounded-xl border border-gray-700 flex flex-col gap-2 shadow-lg">
+                <button @click="endMatch" class="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold py-2 rounded-lg shadow-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wide transition transform active:scale-95">
+                    <i class="ph ph-whistle text-lg"></i> Encerrar Partida
                 </button>
+                <div class="flex justify-center">
+                    <span class="text-[9px] font-mono text-gray-500" v-if="status.waitingTeamsCount >= 2">Regra: Empate remove os dois times</span>
+                    <span class="text-[9px] font-mono text-gray-500" v-else>Regra: Empate remove time B</span>
+                </div>
             </div>
 
         </section>
 
         <section class="lg:col-span-3 space-y-3 flex flex-col">
             
-            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex-shrink-0">
+            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex-shrink-0 shadow-lg">
                 <div class="p-1.5 bg-gray-750 border-b border-gray-700 text-center">
-                    <h3 class="text-xs font-bold text-blue-400">Próximos</h3>
+                    <h3 class="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Próximos Times</h3>
                 </div>
                 
-                <div class="p-1.5 space-y-1.5">
-                    <div class="bg-gray-900/50 rounded border border-gray-700/50" @dragover.prevent @drop="onDrop($event, 'nextTeam1')">
-                        <div class="px-2 py-0.5 text-[9px] font-bold text-gray-500 uppercase flex justify-between">
+                <div class="p-1.5 space-y-2">
+                    <div class="bg-gray-900/40 rounded border border-gray-700/50" @dragover.prevent @drop="onDrop($event, 'nextTeam1')">
+                        <div class="px-2 py-1 text-[9px] font-bold text-gray-500 uppercase flex justify-between bg-gray-900/50 rounded-t">
                             <span>Próximo 1</span>
                             <span>{{ nextTeams.team1.length }}/{{config.playersPerTeam}}</span>
                         </div>
                         <div class="p-1 min-h-[50px] space-y-1">
                             <player-card v-for="p in nextTeams.team1" :key="p.id" :player="p" :mini="true" @dragstart="onDragStart($event, p, 'nextTeam1')"></player-card>
-                            <div v-if="nextTeams.team1.length === 0" class="text-[9px] text-center text-gray-600 py-1 italic">Vazio</div>
+                            <div v-if="nextTeams.team1.length === 0" class="text-[8px] text-center text-gray-600 py-2 italic">Vazio</div>
                         </div>
                     </div>
 
-                    <div class="bg-gray-900/50 rounded border border-gray-700/50" v-if="queue.length > config.playersPerTeam" @dragover.prevent @drop="onDrop($event, 'nextTeam2')">
-                        <div class="px-2 py-0.5 text-[9px] font-bold text-gray-500 uppercase flex justify-between">
+                    <div class="bg-gray-900/40 rounded border border-gray-700/50" v-if="queue.length > config.playersPerTeam" @dragover.prevent @drop="onDrop($event, 'nextTeam2')">
+                        <div class="px-2 py-1 text-[9px] font-bold text-gray-500 uppercase flex justify-between bg-gray-900/50 rounded-t">
                             <span>Próximo 2</span>
                             <span>{{ nextTeams.team2.length }}/{{config.playersPerTeam}}</span>
                         </div>
@@ -201,15 +205,15 @@
                 </div>
             </div>
 
-            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex-1 flex flex-col min-h-[180px]">
+            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex-1 flex flex-col min-h-[180px] shadow-lg">
                 <div class="p-2 bg-gray-750 border-b border-gray-700 flex justify-between items-center">
-                    <h3 class="text-xs font-bold text-yellow-400">Fila de Espera</h3>
-                    <span class="bg-gray-900 text-[10px] px-1.5 rounded text-gray-400">{{ queue.length }}</span>
+                    <h3 class="text-[10px] font-bold text-yellow-500 uppercase tracking-wider">Fila de Espera</h3>
+                    <span class="bg-gray-900 text-[9px] px-1.5 py-0.5 rounded text-gray-400 border border-gray-700">{{ queue.length }}</span>
                 </div>
                 <div class="flex-1 p-1.5 bg-gray-900/30 overflow-y-auto" @dragover.prevent @drop="onDrop($event, 'queue')">
                     <div class="space-y-1 min-h-full">
                         <player-card v-for="(p, index) in queue" :key="p.id" :player="p" :index="index + 1" @dragstart="onDragStart($event, p, 'queue')"></player-card>
-                        <div v-if="queue.length === 0" class="text-center text-gray-600 text-xs py-8 italic">
+                        <div v-if="queue.length === 0" class="text-center text-gray-600 text-[10px] py-10 italic">
                             Ninguém na espera
                         </div>
                     </div>
@@ -223,21 +227,21 @@
 
 <script type="text/x-template" id="player-card-template">
     <div 
-        class="draggable-item bg-gray-700 hover:bg-gray-600 rounded flex justify-between items-center shadow border-l-[3px] select-none transition group"
+        class="draggable-item bg-gray-700 hover:bg-gray-600 rounded flex justify-between items-center shadow-sm border-l-[3px] select-none transition group"
         :class="[
             player.role === 'GK' ? 'border-yellow-500' : 'border-blue-500',
-            mini ? 'p-0.5' : 'py-1 px-2'
+            mini ? 'p-1' : 'py-1 px-2'
         ]"
         draggable="true"
     >
-        <div class="flex items-center gap-2 overflow-hidden">
-            <span v-if="index" class="text-[9px] font-mono bg-gray-800 w-3.5 h-3.5 flex items-center justify-center rounded text-gray-400">{{ index }}</span>
-            <div class="flex flex-col truncate">
-                <span class="font-bold text-gray-200 truncate leading-tight" :class="mini ? 'text-[10px]' : 'text-xs'">{{ player.name }}</span>
-                <span v-if="!mini && player.role === 'GK'" class="text-[8px] text-yellow-500 uppercase font-bold leading-none mt-[1px]">Goleiro</span>
+        <div class="flex items-center gap-2 overflow-hidden w-full">
+            <span v-if="index" class="text-[9px] font-mono bg-gray-800 w-3.5 h-3.5 flex items-center justify-center rounded text-gray-400 flex-shrink-0">{{ index }}</span>
+            <div class="flex flex-col truncate w-full">
+                <span class="font-bold text-gray-200 truncate leading-tight" :class="mini ? 'text-[9px]' : 'text-[11px]'">{{ player.name }}</span>
+                <span v-if="!mini && player.role === 'GK'" class="text-[7px] text-yellow-500 uppercase font-bold leading-none mt-[1px]">Goleiro</span>
             </div>
         </div>
-        <i v-if="!mini" class="ph ph-dots-six-vertical text-gray-500 text-xs group-hover:text-gray-300"></i>
+        <i v-if="!mini" class="ph ph-dots-six-vertical text-gray-500 text-[10px] group-hover:text-gray-300 ml-1"></i>
     </div>
 </script>
 
@@ -336,38 +340,30 @@
                 saveData();
             };
 
-            // === NOVA LÓGICA DE GERAÇÃO (FIFO / ORDEM DA LISTA) ===
+            // GERAÇÃO SEQUENCIAL
             const generateInitialTeams = () => {
                 const paid = allPlayers.value.filter(p => p.paid);
                 
-                // Separa SEM embaralhar (mantém ordem de inserção)
+                // Separa mantendo a ordem (sem shuffle)
                 let gks = paid.filter(p => p.role === 'GK');
                 let lines = paid.filter(p => p.role === 'LINE');
 
-                // Função auxiliar que preenche o time passado como argumento
                 const fillTeam = (targetArray) => {
-                    // Tenta pegar 1 Goleiro do topo da lista
-                    if(gks.length > 0) {
-                        targetArray.push(gks.shift());
-                    }
-                    // Completa com linha até o limite
+                    if(gks.length > 0) targetArray.push(gks.shift());
                     while(targetArray.length < config.playersPerTeam && lines.length > 0) {
                         targetArray.push(lines.shift());
                     }
                 };
 
-                // Limpa estado atual
                 match.teamA = []; match.teamB = [];
                 nextTeams.team1 = []; nextTeams.team2 = [];
                 queue.value = [];
 
-                // Aplica lógica sequencial
                 fillTeam(match.teamA);
                 fillTeam(match.teamB);
                 fillTeam(nextTeams.team1);
                 fillTeam(nextTeams.team2);
 
-                // O que sobrou vai para a fila (Goleiros primeiro, depois Linha)
                 queue.value = [...gks, ...lines];
 
                 resetTimer(true);
@@ -386,7 +382,7 @@
                         } else {
                             match.timerRunning = false;
                             clearInterval(timerInterval);
-                            alert("Tempo Esgotado!");
+                            alert("Fim de Jogo!");
                         }
                     }, 1000);
                 } else {
@@ -413,7 +409,7 @@
 
             // Rotação
             const endMatch = () => {
-                if(!confirm("Encerrar e rotacionar?")) return;
+                if(!confirm("Encerrar partida?")) return;
 
                 clearInterval(timerInterval);
                 match.timerRunning = false;
