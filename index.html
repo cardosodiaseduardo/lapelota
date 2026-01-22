@@ -3,72 +3,662 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Pelada PRO - v1.10</title>
+    <title>LaPelota - Gestão de Peladas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; overflow: hidden; } /* Remove scroll da página */
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --bg-dark: #0a0f1a;
+            --bg-card: #111827;
+            --bg-elevated: #1f2937;
+            --border-color: #374151;
+        }
+        
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            overflow: hidden;
+            background: var(--bg-dark);
+        }
+        
         .draggable-item { cursor: grab; touch-action: none; }
         .draggable-item:active { cursor: grabbing; }
         .font-mono-nums { font-variant-numeric: tabular-nums; }
         
-        /* Scrollbar fina e escura */
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: #111827; }
+        /* Scrollbar elegante */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
         
         .drag-over-item { border-top: 2px solid #34d399 !important; }
+        
+        /* Gradiente animado para login */
+        .gradient-bg {
+            background: linear-gradient(135deg, #0a0f1a 0%, #1a1f2e 50%, #0f172a 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .gradient-bg::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+            animation: pulse-glow 8s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            transition: width 0.3s ease;
+        }
+        
+        .sidebar.collapsed {
+            width: 64px;
+        }
+        
+        .sidebar.expanded {
+            width: 240px;
+        }
+        
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+        
+        .sidebar-item:hover {
+            background: rgba(16, 185, 129, 0.1);
+        }
+        
+        .sidebar-item.active {
+            background: rgba(16, 185, 129, 0.15);
+            border-left: 3px solid #10b981;
+        }
+        
+        /* Cards com hover */
+        .card-hover {
+            transition: all 0.2s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Modal backdrop */
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+        }
+        
+        /* Input focus */
+        .input-focus:focus {
+            outline: none;
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        
+        /* Button primary */
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        /* Avatar placeholder */
+        .avatar-placeholder {
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+        }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-100 h-screen w-screen flex flex-col text-xs overflow-hidden">
+<body class="bg-gray-950 text-gray-100 h-screen w-screen flex flex-col text-sm overflow-hidden">
 
-<div id="app" class="flex flex-col h-full w-full p-2 gap-2 max-w-[1600px] mx-auto">
+<div id="app" class="h-full w-full">
     
-    <header class="bg-gray-900 p-2 rounded-lg border border-gray-800 flex-shrink-0 flex justify-between items-center gap-2">
+    <!-- ==================== TELA DE LOGIN ==================== -->
+    <div v-if="!session" class="gradient-bg h-full w-full flex items-center justify-center p-4">
+        <div class="relative z-10 w-full max-w-md">
+            <!-- Logo -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-lg shadow-emerald-500/30 mb-4">
+                    <i class="ph ph-soccer-ball text-4xl text-white"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-white mb-2">LaPelota</h1>
+                <p class="text-gray-400">Gestão inteligente de peladas</p>
+            </div>
+            
+            <!-- Card de Login -->
+            <div class="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-800 p-8 shadow-2xl">
+                <!-- Tabs -->
+                <div class="flex mb-6 bg-gray-800 rounded-lg p-1">
+                    <button 
+                        @click="authMode = 'login'" 
+                        class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition"
+                        :class="authMode === 'login' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'"
+                    >
+                        Entrar
+                    </button>
+                    <button 
+                        @click="authMode = 'signup'" 
+                        class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition"
+                        :class="authMode === 'signup' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'"
+                    >
+                        Criar conta
+                    </button>
+                </div>
+                
+                <!-- Formulário -->
+                <form @submit.prevent="handleAuth" class="space-y-4">
+                    <div v-if="authMode === 'signup'">
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Nome completo</label>
+                        <input 
+                            v-model="authForm.fullName" 
+                            type="text" 
+                            placeholder="Seu nome"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 input-focus"
+                        >
+                    </div>
+                    
         <div>
-            <h1 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                        <label class="block text-sm font-medium text-gray-300 mb-1">E-mail</label>
+                        <input 
+                            v-model="authForm.email" 
+                            type="email" 
+                            placeholder="seu@email.com"
+                            required
+                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 input-focus"
+                        >
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Senha</label>
+                        <input 
+                            v-model="authForm.password" 
+                            type="password" 
+                            placeholder="••••••••"
+                            required
+                            minlength="6"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 input-focus"
+                        >
+                    </div>
+                    
+                    <div v-if="authError" class="bg-red-900/50 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
+                        {{ authError }}
+                    </div>
+                    
+                    <div v-if="authSuccess" class="bg-emerald-900/50 border border-emerald-700 rounded-lg p-3 text-emerald-300 text-sm">
+                        {{ authSuccess }}
+                    </div>
+                    
+                    <button 
+                        type="submit" 
+                        :disabled="authLoading"
+                        class="w-full btn-primary text-white font-semibold py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span v-if="authLoading" class="flex items-center justify-center gap-2">
+                            <i class="ph ph-spinner animate-spin"></i> Aguarde...
+                        </span>
+                        <span v-else>{{ authMode === 'login' ? 'Entrar' : 'Criar conta' }}</span>
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Footer -->
+            <p class="text-center text-gray-500 text-sm mt-6">
+                © 2024 LaPelota. Organize suas peladas com facilidade.
+            </p>
+        </div>
+    </div>
+    
+    <!-- ==================== INTRANET (PÓS-LOGIN) ==================== -->
+    <div v-else class="h-full w-full flex">
+        
+        <!-- Sidebar -->
+        <aside 
+            class="sidebar bg-gray-900 border-r border-gray-800 flex flex-col h-full"
+            :class="sidebarExpanded ? 'expanded' : 'collapsed'"
+        >
+            <!-- Header da Sidebar -->
+            <div class="p-4 border-b border-gray-800 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <i class="ph ph-soccer-ball text-xl text-white"></i>
+                </div>
+                <span v-show="sidebarExpanded" class="font-bold text-lg text-white whitespace-nowrap">LaPelota</span>
+            </div>
+            
+            <!-- Menu -->
+            <nav class="flex-1 p-2 space-y-1">
+                <button 
+                    @click="navigateTo('grupos')"
+                    class="sidebar-item w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left"
+                    :class="currentView === 'grupos' || currentView === 'pelada' ? 'active text-emerald-400' : 'text-gray-400 hover:text-white'"
+                >
+                    <i class="ph ph-users-three text-xl flex-shrink-0"></i>
+                    <span v-show="sidebarExpanded" class="whitespace-nowrap">Grupos</span>
+                </button>
+                
+                <button 
+                    @click="navigateTo('config')"
+                    class="sidebar-item w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left"
+                    :class="currentView === 'config' ? 'active text-emerald-400' : 'text-gray-400 hover:text-white'"
+                >
+                    <i class="ph ph-gear text-xl flex-shrink-0"></i>
+                    <span v-show="sidebarExpanded" class="whitespace-nowrap">Configurações</span>
+                </button>
+            </nav>
+            
+            <!-- Footer da Sidebar -->
+            <div class="p-2 border-t border-gray-800">
+                <!-- Toggle Sidebar -->
+                <button 
+                    @click="sidebarExpanded = !sidebarExpanded"
+                    class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition mb-2"
+                >
+                    <i class="ph text-xl flex-shrink-0" :class="sidebarExpanded ? 'ph-caret-left' : 'ph-caret-right'"></i>
+                    <span v-show="sidebarExpanded" class="whitespace-nowrap text-sm">Recolher</span>
+                </button>
+                
+                <!-- Usuário -->
+                <div class="flex items-center gap-3 px-3 py-2">
+                    <div class="w-8 h-8 rounded-full avatar-placeholder flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        <img v-if="userProfile?.foto_do_jogador" :src="userProfile.foto_do_jogador" class="w-full h-full object-cover">
+                        <i v-else class="ph ph-user text-gray-400"></i>
+                    </div>
+                    <div v-show="sidebarExpanded" class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-white truncate">{{ userProfile?.apelido_do_jogador || userProfile?.nome_do_jogador || 'Usuário' }}</p>
+                        <p class="text-xs text-gray-500 truncate">{{ session?.user?.email }}</p>
+                    </div>
+                </div>
+                
+                <!-- Logout -->
+                <button 
+                    @click="handleLogout"
+                    class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/20 transition"
+                >
+                    <i class="ph ph-sign-out text-xl flex-shrink-0"></i>
+                    <span v-show="sidebarExpanded" class="whitespace-nowrap text-sm">Sair</span>
+                </button>
+            </div>
+        </aside>
+        
+        <!-- Conteúdo Principal -->
+        <main class="flex-1 h-full overflow-hidden bg-gray-950">
+            
+            <!-- ==================== VIEW: GRUPOS ==================== -->
+            <div v-if="currentView === 'grupos'" class="h-full flex flex-col p-6 overflow-hidden">
+                <header class="flex-shrink-0 mb-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-2xl font-bold text-white">Meus Grupos</h1>
+                            <p class="text-gray-400">Gerencie seus grupos de pelada</p>
+                        </div>
+                        <button 
+                            @click="openCreateGroupModal"
+                            class="btn-primary px-4 py-2 rounded-lg font-medium flex items-center gap-2"
+                        >
+                            <i class="ph ph-plus"></i>
+                            Criar grupo
+                        </button>
+                    </div>
+                </header>
+                
+                <div class="flex-1 overflow-y-auto space-y-8 pr-2">
+                    
+                    <!-- Convites Pendentes -->
+                    <section v-if="pendingInvites.length > 0">
+                        <h2 class="text-lg font-semibold text-yellow-400 mb-4 flex items-center gap-2">
+                            <i class="ph ph-envelope-simple"></i>
+                            Convites Pendentes
+                            <span class="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-0.5 rounded-full">{{ pendingInvites.length }}</span>
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div 
+                                v-for="invite in pendingInvites" 
+                                :key="invite.grupo_id"
+                                class="bg-gray-900 border border-yellow-600/30 rounded-xl p-4 card-hover"
+                            >
+                                <div class="flex items-start justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 rounded-xl bg-yellow-600/20 flex items-center justify-center">
+                                            <i class="ph ph-users-three text-2xl text-yellow-400"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-semibold text-white">{{ invite.grupos?.nome_do_grupo }}</h3>
+                                            <p class="text-sm text-gray-400">{{ invite.grupos?.cidade_do_grupo }}<span v-if="invite.grupos?.estado_do_grupo">, {{ invite.grupos?.estado_do_grupo }}</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button 
+                                        @click="acceptInvite(invite)"
+                                        class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg font-medium transition"
+                                    >
+                                        Aceitar
+                                    </button>
+                                    <button 
+                                        @click="declineInvite(invite)"
+                                        class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg font-medium transition"
+                                    >
+                                        Recusar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <!-- Grupos que Coordeno -->
+                    <section v-if="adminGroups.length > 0">
+                        <h2 class="text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2">
+                            <i class="ph ph-crown"></i>
+                            Grupos que Coordeno
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div 
+                                v-for="group in adminGroups" 
+                                :key="group.grupos?.id"
+                                class="bg-gray-900 border border-emerald-600/30 rounded-xl p-4 card-hover"
+                            >
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 rounded-xl bg-emerald-600/20 flex items-center justify-center">
+                                            <i class="ph ph-users-three text-2xl text-emerald-400"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-semibold text-white">{{ group.grupos?.nome_do_grupo }}</h3>
+                                            <p class="text-sm text-gray-400">{{ group.grupos?.cidade_do_grupo }}<span v-if="group.grupos?.estado_do_grupo">, {{ group.grupos?.estado_do_grupo }}</span></p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-1 rounded-full">
+                                        {{ group.is_admin ? 'Admin' : 'Responsável' }}
+                                    </span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button 
+                                        @click="openPelada(group.grupos?.id)"
+                                        class="flex-1 btn-primary py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+                                    >
+                                        <i class="ph ph-soccer-ball"></i>
+                                        Gerenciar Pelada
+                                    </button>
+                                    <button 
+                                        @click="openMembersModal(group.grupos)"
+                                        class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
+                                        title="Gerenciar Membros"
+                                    >
+                                        <i class="ph ph-user-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <!-- Meus Grupos (Membro) -->
+                    <section v-if="memberGroups.length > 0">
+                        <h2 class="text-lg font-semibold text-blue-400 mb-4 flex items-center gap-2">
+                            <i class="ph ph-users"></i>
+                            Meus Grupos
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div 
+                                v-for="group in memberGroups" 
+                                :key="group.grupos?.id"
+                                class="bg-gray-900 border border-blue-600/30 rounded-xl p-4 card-hover"
+                            >
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 rounded-xl bg-blue-600/20 flex items-center justify-center">
+                                            <i class="ph ph-users-three text-2xl text-blue-400"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-semibold text-white">{{ group.grupos?.nome_do_grupo }}</h3>
+                                            <p class="text-sm text-gray-400">{{ group.grupos?.cidade_do_grupo }}<span v-if="group.grupos?.estado_do_grupo">, {{ group.grupos?.estado_do_grupo }}</span></p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-blue-500/20 text-blue-400 text-xs px-2 py-1 rounded-full">
+                                        Membro
+                                    </span>
+                                </div>
+                                <p class="text-sm text-gray-500">Você é membro deste grupo.</p>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <!-- Estado vazio -->
+                    <div v-if="pendingInvites.length === 0 && adminGroups.length === 0 && memberGroups.length === 0 && !loadingGroups" class="flex flex-col items-center justify-center py-20">
+                        <div class="w-24 h-24 rounded-full bg-gray-800 flex items-center justify-center mb-6">
+                            <i class="ph ph-users-three text-5xl text-gray-600"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-400 mb-2">Nenhum grupo ainda</h3>
+                        <p class="text-gray-500 mb-6">Crie seu primeiro grupo ou aguarde um convite.</p>
+                        <button 
+                            @click="openCreateGroupModal"
+                            class="btn-primary px-6 py-3 rounded-lg font-medium flex items-center gap-2"
+                        >
+                            <i class="ph ph-plus"></i>
+                            Criar meu primeiro grupo
+                        </button>
+                    </div>
+                    
+                    <!-- Loading -->
+                    <div v-if="loadingGroups" class="flex items-center justify-center py-20">
+                        <i class="ph ph-spinner animate-spin text-4xl text-emerald-500"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ==================== VIEW: CONFIGURAÇÕES ==================== -->
+            <div v-if="currentView === 'config'" class="h-full flex flex-col p-6 overflow-hidden">
+                <header class="flex-shrink-0 mb-6">
+                    <h1 class="text-2xl font-bold text-white">Configurações</h1>
+                    <p class="text-gray-400">Gerencie seu perfil</p>
+                </header>
+                
+                <div class="flex-1 overflow-y-auto">
+                    <div class="max-w-2xl">
+                        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                            <h2 class="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+                                <i class="ph ph-user"></i>
+                                Meu Perfil
+                            </h2>
+                            
+                            <form @submit.prevent="saveProfile" class="space-y-4">
+                                <!-- Foto -->
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-20 h-20 rounded-full avatar-placeholder flex items-center justify-center overflow-hidden">
+                                        <img v-if="profileForm.foto_do_jogador" :src="profileForm.foto_do_jogador" class="w-full h-full object-cover">
+                                        <i v-else class="ph ph-user text-3xl text-gray-400"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">URL da foto</label>
+                                        <input 
+                                            v-model="profileForm.foto_do_jogador" 
+                                            type="url" 
+                                            placeholder="https://exemplo.com/foto.jpg"
+                                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 input-focus"
+                                        >
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">Nome completo</label>
+                                        <input 
+                                            v-model="profileForm.nome_do_jogador" 
+                                            type="text" 
+                                            required
+                                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 input-focus"
+                                        >
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">Apelido</label>
+                                        <input 
+                                            v-model="profileForm.apelido_do_jogador" 
+                                            type="text" 
+                                            placeholder="Como querem te chamar?"
+                                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 input-focus"
+                                        >
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1">E-mail</label>
+                                    <input 
+                                        :value="userProfile?.email_do_jogador" 
+                                        type="email" 
+                                        disabled
+                                        class="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-4 py-2 text-gray-400 cursor-not-allowed"
+                                    >
+                                    <p class="text-xs text-gray-500 mt-1">O e-mail não pode ser alterado.</p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1">Telefone</label>
+                                    <input 
+                                        v-model="profileForm.numero_telefone" 
+                                        type="tel" 
+                                        placeholder="(00) 00000-0000"
+                                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 input-focus"
+                                    >
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">Cidade</label>
+                                        <input 
+                                            v-model="profileForm.cidade_do_jogador" 
+                                            type="text" 
+                                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 input-focus"
+                                        >
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">Estado</label>
+                                        <input 
+                                            v-model="profileForm.estado_do_jogador" 
+                                            type="text" 
+                                            placeholder="Ex: SP"
+                                            maxlength="2"
+                                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 input-focus uppercase"
+                                        >
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1">Sexo</label>
+                                    <select 
+                                        v-model="profileForm.sexo_do_jogador"
+                                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white input-focus"
+                                    >
+                                        <option value="">Não informado</option>
+                                        <option value="M">Masculino</option>
+                                        <option value="F">Feminino</option>
+                                        <option value="O">Outro</option>
+                                    </select>
+                                </div>
+                                
+                                <div v-if="profileError" class="bg-red-900/50 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
+                                    {{ profileError }}
+                                </div>
+                                
+                                <div v-if="profileSuccess" class="bg-emerald-900/50 border border-emerald-700 rounded-lg p-3 text-emerald-300 text-sm">
+                                    {{ profileSuccess }}
+                                </div>
+                                
+                                <div class="pt-4">
+                                    <button 
+                                        type="submit" 
+                                        :disabled="savingProfile"
+                                        class="btn-primary px-6 py-2 rounded-lg font-medium disabled:opacity-50"
+                                    >
+                                        <span v-if="savingProfile" class="flex items-center gap-2">
+                                            <i class="ph ph-spinner animate-spin"></i> Salvando...
+                                        </span>
+                                        <span v-else>Salvar alterações</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ==================== VIEW: PELADA ==================== -->
+            <div v-if="currentView === 'pelada'" class="h-full flex flex-col">
+                <!-- Header da Pelada -->
+                <header class="flex-shrink-0 bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <button 
+                            @click="navigateTo('grupos')"
+                            class="p-2 hover:bg-gray-800 rounded-lg transition"
+                        >
+                            <i class="ph ph-arrow-left text-xl"></i>
+                        </button>
+                        <div>
+                            <h1 class="text-lg font-bold text-emerald-400 flex items-center gap-2">
                 <i class="ph ph-soccer-ball"></i> Gestão de Pelada
             </h1>
+                            <p class="text-xs text-gray-400">{{ currentGroupName }}</p>
+                        </div>
         </div>
         
         <div class="flex items-center gap-3">
             <div class="flex items-center gap-1">
                 <span class="text-[9px] text-gray-500 uppercase font-bold">Tempo:</span>
-                <span class="font-bold text-emerald-400 text-[10px]">{{ status.isFirstMatch ? '10 min' : '7 min' }}</span>
+                            <span class="font-bold text-emerald-400 text-[10px]">{{ peladaStatus.isFirstMatch ? '10 min' : '7 min' }}</span>
             </div>
-
-            <button @click="resetAll" class="text-red-400 hover:text-red-300 text-[10px] uppercase font-bold px-2 border-l border-gray-700">
+                        <button @click="resetPelada" class="text-red-400 hover:text-red-300 text-[10px] uppercase font-bold px-2 border-l border-gray-700">
                 Resetar
             </button>
         </div>
     </header>
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-2 flex-1 min-h-0">
+                <!-- Conteúdo da Pelada -->
+                <div class="flex-1 p-2 overflow-hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-2 h-full">
         
+                        <!-- Coluna Esquerda: Cadastro -->
         <section class="lg:col-span-2 flex flex-col bg-gray-900 rounded-lg border border-gray-800 h-full overflow-hidden">
             <div class="flex-shrink-0 border-b border-gray-800">
-                <div @click="ui.showRegister = !ui.showRegister" class="p-2 bg-gray-800 cursor-pointer flex justify-between items-center hover:bg-gray-750 transition">
+                                <div @click="peladaUI.showRegister = !peladaUI.showRegister" class="p-2 bg-gray-800 cursor-pointer flex justify-between items-center hover:bg-gray-750 transition">
                     <h2 class="font-bold text-gray-300 flex items-center gap-1 text-[11px]"><i class="ph ph-users"></i> Cadastro</h2>
-                    <i class="ph text-xs" :class="ui.showRegister ? 'ph-caret-up' : 'ph-caret-down'"></i>
+                                    <i class="ph text-xs" :class="peladaUI.showRegister ? 'ph-caret-up' : 'ph-caret-down'"></i>
                 </div>
                 
-                <div v-show="ui.showRegister" class="p-2 space-y-1.5 bg-gray-900">
-                    <textarea v-model="input.goalkeepers" placeholder="Goleiros..." class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-[10px] h-12 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"></textarea>
-                    <textarea v-model="input.lines" placeholder="Jogadores..." class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-[10px] h-16 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"></textarea>
-                    <button @click="addPlayers" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 rounded text-[10px] uppercase tracking-wide transition">Adicionar</button>
+                                <div v-show="peladaUI.showRegister" class="p-2 space-y-1.5 bg-gray-900">
+                                    <textarea v-model="peladaInput.goalkeepers" placeholder="Goleiros..." class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-[10px] h-12 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"></textarea>
+                                    <textarea v-model="peladaInput.lines" placeholder="Jogadores..." class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-[10px] h-16 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"></textarea>
+                                    <button @click="addPeladaPlayers" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 rounded text-[10px] uppercase tracking-wide transition">Adicionar</button>
                 </div>
             </div>
 
             <div class="px-2 py-1.5 bg-gray-800 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-                <span class="text-[9px] uppercase font-bold text-gray-500">Total: {{allPlayers.length}}</span>
+                                <span class="text-[9px] uppercase font-bold text-gray-500">Total: {{peladaAllPlayers.length}}</span>
                 <div class="flex items-center gap-2">
-                    <button @click="markAllPaid" class="text-emerald-500 hover:text-emerald-400 text-[9px] flex items-center gap-1 font-bold" title="Marcar Todos como Pagos">
+                                    <button @click="markAllPeladaPaid" class="text-emerald-500 hover:text-emerald-400 text-[9px] flex items-center gap-1 font-bold" title="Marcar Todos como Pagos">
                         💰 Todos Pagos
                     </button>
-                    <button @click="markAllArrivedAndQueue" class="text-cyan-500 hover:text-cyan-400 text-[9px] flex items-center gap-1 font-bold" title="Enviar Todos Pagos para Fila">
+                                    <button @click="markAllPeladaArrivedAndQueue" class="text-cyan-500 hover:text-cyan-400 text-[9px] flex items-center gap-1 font-bold" title="Enviar Todos Pagos para Fila">
                         ✅ Todos Chegaram
                     </button>
                 </div>
@@ -77,17 +667,17 @@
             <div class="px-1.5 py-1 bg-gray-850 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
                 <span class="text-[8px] uppercase font-bold text-gray-500">Jogador</span>
                 <div class="flex items-center gap-1">
-                    <span class="text-[8px] uppercase font-bold text-emerald-500 w-6 text-center" :title="paidCount + ' pagos'">💰 <span class="text-[7px] text-emerald-400">{{paidCount}}</span></span>
-                    <span class="text-[8px] uppercase font-bold text-cyan-500 w-6 text-center" :title="arrivedCount + ' chegaram'">✅ <span class="text-[7px] text-cyan-400">{{arrivedCount}}</span></span>
+                                    <span class="text-[8px] uppercase font-bold text-emerald-500 w-6 text-center" :title="peladaPaidCount + ' pagos'">💰 <span class="text-[7px] text-emerald-400">{{peladaPaidCount}}</span></span>
+                                    <span class="text-[8px] uppercase font-bold text-cyan-500 w-6 text-center" :title="peladaArrivedCount + ' chegaram'">✅ <span class="text-[7px] text-cyan-400">{{peladaArrivedCount}}</span></span>
                 </div>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-1.5 bg-gray-900" @dragover.prevent @drop="onDropOnRegister($event)">
+                            <div class="flex-1 overflow-y-auto p-1.5 bg-gray-900" @dragover.prevent @drop="onDropOnPeladaRegister($event)">
                 <ul class="space-y-1">
-                    <li v-for="(p, idx) in allPlayers" :key="p.id" 
+                                    <li v-for="(p, idx) in peladaAllPlayers" :key="p.id" 
                         class="flex items-center justify-between bg-gray-800 p-1 rounded border border-gray-700 group hover:border-gray-600 transition draggable-item"
                         draggable="true"
-                        @dragstart="onDragStartFromRegister($event, p)">
+                                        @dragstart="onPeladaDragStartFromRegister($event, p)">
                         <div class="flex items-center gap-1.5 overflow-hidden">
                             <span class="text-[9px] text-gray-500 font-mono w-3 text-right">{{ idx + 1 }}</span>
                             <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="p.role === 'GK' ? 'bg-yellow-500' : 'bg-blue-500'"></span>
@@ -95,20 +685,21 @@
                         </div>
                         <div class="flex items-center gap-1">
                             <div class="w-6 flex justify-center">
-                                <input type="checkbox" v-model="p.paid" @change="onPaidChange(p)" class="w-3 h-3 accent-emerald-500 cursor-pointer rounded-sm" title="Pago">
+                                                <input type="checkbox" v-model="p.paid" @change="onPeladaPaidChange(p)" class="w-3 h-3 accent-emerald-500 cursor-pointer rounded-sm" title="Pago">
                             </div>
                             <div class="w-6 flex justify-center">
-                                <input type="checkbox" v-model="p.arrived" @change="onArrivedChange(p)" class="w-3 h-3 accent-cyan-500 cursor-pointer rounded-sm" title="Chegou">
+                                                <input type="checkbox" v-model="p.arrived" @change="onPeladaArrivedChange(p)" class="w-3 h-3 accent-cyan-500 cursor-pointer rounded-sm" title="Chegou">
                             </div>
                         </div>
                     </li>
                 </ul>
             </div>
-            
         </section>
 
+                        <!-- Coluna Central: Times e Placar -->
         <section class="lg:col-span-7 flex flex-col gap-2 h-full min-h-0">
             
+                            <!-- Placar -->
             <div class="bg-gray-900 rounded-lg border border-gray-800 shadow relative flex-shrink-0">
                 <div class="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-yellow-500 via-gray-500 to-blue-500 opacity-60"></div>
                 
@@ -117,51 +708,35 @@
                         <div class="flex flex-col items-center">
                             <span class="text-[9px] font-bold text-yellow-400 uppercase">Time Amarelo</span>
                             <div class="flex items-center gap-1 bg-black/30 rounded p-0.5 border border-yellow-600/30">
-                                <button @click="adjustScore('A', -1)" class="w-5 h-5 hover:bg-gray-700 rounded text-gray-400 flex items-center justify-center"><i class="ph ph-minus"></i></button>
-                                <span class="text-lg font-mono-nums font-bold w-6 text-center text-yellow-400">{{ match.scoreA }}</span>
-                                <button @click="adjustScore('A', 1)" class="w-5 h-5 hover:bg-yellow-900/50 rounded text-yellow-400 flex items-center justify-center"><i class="ph ph-plus"></i></button>
+                                                <button @click="adjustPeladaScore('A', -1)" class="w-5 h-5 hover:bg-gray-700 rounded text-gray-400 flex items-center justify-center"><i class="ph ph-minus"></i></button>
+                                                <span class="text-lg font-mono-nums font-bold w-6 text-center text-yellow-400">{{ peladaMatch.scoreA }}</span>
+                                                <button @click="adjustPeladaScore('A', 1)" class="w-5 h-5 hover:bg-yellow-900/50 rounded text-yellow-400 flex items-center justify-center"><i class="ph ph-plus"></i></button>
                             </div>
                         </div>
                     </div>
 
                     <div class="flex flex-col items-center">
-                        <div class="text-3xl font-mono-nums font-bold tracking-widest leading-none" :class="{'text-red-500 animate-pulse': match.timeLeft < 60 && match.timeLeft > 0, 'text-white': match.timeLeft >= 60}">
-                            {{ formattedTime }}
+                                        <div class="text-3xl font-mono-nums font-bold tracking-widest leading-none" :class="{'text-red-500 animate-pulse': peladaMatch.timeLeft < 60 && peladaMatch.timeLeft > 0, 'text-white': peladaMatch.timeLeft >= 60}">
+                                            {{ peladaFormattedTime }}
                         </div>
                         
-                        <!-- Controles principais -->
                         <div class="flex gap-2 mt-1">
-                            <button @click="toggleTimer" class="px-3 py-0.5 rounded-full text-white text-[10px] font-bold uppercase tracking-wider shadow border border-white/10 transition hover:scale-105" :class="match.timerRunning ? 'bg-yellow-600' : 'bg-emerald-600'">
-                                {{ match.timerRunning ? 'Pausar' : (match.hasStarted ? 'Retomar' : 'Iniciar') }}
+                                            <button @click="togglePeladaTimer" class="px-3 py-0.5 rounded-full text-white text-[10px] font-bold uppercase tracking-wider shadow border border-white/10 transition hover:scale-105" :class="peladaMatch.timerRunning ? 'bg-yellow-600' : 'bg-emerald-600'">
+                                                {{ peladaMatch.timerRunning ? 'Pausar' : (peladaMatch.hasStarted ? 'Retomar' : 'Iniciar') }}
                             </button>
-                            <button @click="resetTimer(status.isFirstMatch)" class="w-6 h-6 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 border border-gray-700" title="Reiniciar Tempo">
+                                            <button @click="resetPeladaTimer(peladaStatus.isFirstMatch)" class="w-6 h-6 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 border border-gray-700" title="Reiniciar Tempo">
                                 <i class="ph ph-arrow-counter-clockwise"></i>
                             </button>
                         </div>
                         
-                        <!-- Controles de ajuste de tempo -->
                         <div class="flex gap-1 mt-1.5">
-                            <button @click="setTimeZero" class="px-1.5 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-[9px] font-bold border border-gray-600 transition" title="Zerar cronômetro">
-                                0s
-                            </button>
-                            <button @click="adjustTime(-60)" class="px-1.5 py-0.5 rounded bg-red-900/50 hover:bg-red-800/60 text-red-400 text-[9px] font-bold border border-red-700/50 transition" title="Remover 1 minuto">
-                                -1min
-                            </button>
-                            <button @click="adjustTime(-30)" class="px-1.5 py-0.5 rounded bg-red-900/30 hover:bg-red-800/40 text-red-400 text-[9px] font-bold border border-red-700/30 transition" title="Remover 30 segundos">
-                                -30s
-                            </button>
-                            <button @click="adjustTime(-10)" class="px-1.5 py-0.5 rounded bg-red-900/20 hover:bg-red-800/30 text-red-400 text-[9px] font-bold border border-red-700/20 transition" title="Remover 10 segundos">
-                                -10s
-                            </button>
-                            <button @click="adjustTime(10)" class="px-1.5 py-0.5 rounded bg-emerald-900/20 hover:bg-emerald-800/30 text-emerald-400 text-[9px] font-bold border border-emerald-700/20 transition" title="Adicionar 10 segundos">
-                                +10s
-                            </button>
-                            <button @click="adjustTime(30)" class="px-1.5 py-0.5 rounded bg-emerald-900/30 hover:bg-emerald-800/40 text-emerald-400 text-[9px] font-bold border border-emerald-700/30 transition" title="Adicionar 30 segundos">
-                                +30s
-                            </button>
-                            <button @click="adjustTime(60)" class="px-1.5 py-0.5 rounded bg-emerald-900/50 hover:bg-emerald-800/60 text-emerald-400 text-[9px] font-bold border border-emerald-700/50 transition" title="Adicionar 1 minuto">
-                                +1min
-                            </button>
+                                            <button @click="setPeladaTimeZero" class="px-1.5 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-[9px] font-bold border border-gray-600 transition" title="Zerar cronômetro">0s</button>
+                                            <button @click="adjustPeladaTime(-60)" class="px-1.5 py-0.5 rounded bg-red-900/50 hover:bg-red-800/60 text-red-400 text-[9px] font-bold border border-red-700/50 transition">-1min</button>
+                                            <button @click="adjustPeladaTime(-30)" class="px-1.5 py-0.5 rounded bg-red-900/30 hover:bg-red-800/40 text-red-400 text-[9px] font-bold border border-red-700/30 transition">-30s</button>
+                                            <button @click="adjustPeladaTime(-10)" class="px-1.5 py-0.5 rounded bg-red-900/20 hover:bg-red-800/30 text-red-400 text-[9px] font-bold border border-red-700/20 transition">-10s</button>
+                                            <button @click="adjustPeladaTime(10)" class="px-1.5 py-0.5 rounded bg-emerald-900/20 hover:bg-emerald-800/30 text-emerald-400 text-[9px] font-bold border border-emerald-700/20 transition">+10s</button>
+                                            <button @click="adjustPeladaTime(30)" class="px-1.5 py-0.5 rounded bg-emerald-900/30 hover:bg-emerald-800/40 text-emerald-400 text-[9px] font-bold border border-emerald-700/30 transition">+30s</button>
+                                            <button @click="adjustPeladaTime(60)" class="px-1.5 py-0.5 rounded bg-emerald-900/50 hover:bg-emerald-800/60 text-emerald-400 text-[9px] font-bold border border-emerald-700/50 transition">+1min</button>
                         </div>
                     </div>
 
@@ -169,76 +744,80 @@
                          <div class="flex flex-col items-center">
                             <span class="text-[9px] font-bold text-blue-400 uppercase">Time Azul</span>
                             <div class="flex items-center gap-1 bg-black/30 rounded p-0.5 border border-blue-600/30">
-                                <button @click="adjustScore('B', -1)" class="w-5 h-5 hover:bg-gray-700 rounded text-gray-400 flex items-center justify-center"><i class="ph ph-minus"></i></button>
-                                <span class="text-lg font-mono-nums font-bold w-6 text-center text-blue-400">{{ match.scoreB }}</span>
-                                <button @click="adjustScore('B', 1)" class="w-5 h-5 hover:bg-blue-900/50 rounded text-blue-400 flex items-center justify-center"><i class="ph ph-plus"></i></button>
+                                                <button @click="adjustPeladaScore('B', -1)" class="w-5 h-5 hover:bg-gray-700 rounded text-gray-400 flex items-center justify-center"><i class="ph ph-minus"></i></button>
+                                                <span class="text-lg font-mono-nums font-bold w-6 text-center text-blue-400">{{ peladaMatch.scoreB }}</span>
+                                                <button @click="adjustPeladaScore('B', 1)" class="w-5 h-5 hover:bg-blue-900/50 rounded text-blue-400 flex items-center justify-center"><i class="ph ph-plus"></i></button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
+                            <!-- Times -->
             <div class="grid grid-cols-2 gap-2 flex-1 min-h-0">
                 <div class="bg-yellow-950/30 border border-yellow-500/30 rounded-lg flex flex-col shadow-inner overflow-hidden" 
-                     @dragover.prevent @drop="onDrop($event, 'teamA')">
+                                     @dragover.prevent @drop="onPeladaDrop($event, 'teamA')">
                     <div class="bg-yellow-900/30 p-1 border-b border-yellow-500/20 text-center flex-shrink-0 flex items-center justify-center gap-1.5">
-                        <i v-if="match.lastWinner === 'A'" class="ph ph-crown text-yellow-300 text-sm" title="Vencedor da última partida"></i>
+                                        <i v-if="peladaMatch.lastWinner === 'A'" class="ph ph-crown text-yellow-300 text-sm" title="Vencedor da última partida"></i>
                         <span class="text-[9px] font-bold text-yellow-400 uppercase tracking-widest">TIME AMARELO</span>
-                        <i v-if="match.lastWinner === 'A'" class="ph ph-crown text-yellow-300 text-sm" title="Vencedor da última partida"></i>
+                                        <i v-if="peladaMatch.lastWinner === 'A'" class="ph ph-crown text-yellow-300 text-sm" title="Vencedor da última partida"></i>
                     </div>
                     <div class="p-1.5 flex-1 overflow-y-auto space-y-1">
-                        <player-card v-for="p in match.teamA" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamA')"></player-card>
-                        <div v-if="match.teamA.length === 0" class="h-full flex items-center justify-center opacity-20 text-[10px] italic border-2 border-dashed border-gray-700 m-2 rounded">
+                                        <pelada-player-card v-for="p in peladaMatch.teamA" :key="p.id" :player="p" @dragstart="onPeladaDragStart($event, p, 'teamA')"></pelada-player-card>
+                                        <div v-if="peladaMatch.teamA.length === 0" class="h-full flex items-center justify-center opacity-20 text-[10px] italic border-2 border-dashed border-gray-700 m-2 rounded">
                             Arrastar Jogadores
                         </div>
                     </div>
                 </div>
 
                 <div class="bg-blue-950/30 border border-blue-500/30 rounded-lg flex flex-col shadow-inner overflow-hidden"
-                     @dragover.prevent @drop="onDrop($event, 'teamB')">
+                                     @dragover.prevent @drop="onPeladaDrop($event, 'teamB')">
                     <div class="bg-blue-900/30 p-1 border-b border-blue-500/20 text-center flex-shrink-0 flex items-center justify-center gap-1.5">
-                        <i v-if="match.lastWinner === 'B'" class="ph ph-crown text-blue-300 text-sm" title="Vencedor da última partida"></i>
+                                        <i v-if="peladaMatch.lastWinner === 'B'" class="ph ph-crown text-blue-300 text-sm" title="Vencedor da última partida"></i>
                         <span class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">TIME AZUL</span>
-                        <i v-if="match.lastWinner === 'B'" class="ph ph-crown text-blue-300 text-sm" title="Vencedor da última partida"></i>
+                                        <i v-if="peladaMatch.lastWinner === 'B'" class="ph ph-crown text-blue-300 text-sm" title="Vencedor da última partida"></i>
                     </div>
                     <div class="p-1.5 flex-1 overflow-y-auto space-y-1">
-                        <player-card v-for="p in match.teamB" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamB')"></player-card>
-                         <div v-if="match.teamB.length === 0" class="h-full flex items-center justify-center opacity-20 text-[10px] italic border-2 border-dashed border-gray-700 m-2 rounded">
+                                        <pelada-player-card v-for="p in peladaMatch.teamB" :key="p.id" :player="p" @dragstart="onPeladaDragStart($event, p, 'teamB')"></pelada-player-card>
+                                         <div v-if="peladaMatch.teamB.length === 0" class="h-full flex items-center justify-center opacity-20 text-[10px] italic border-2 border-dashed border-gray-700 m-2 rounded">
                             Arrastar Jogadores
                         </div>
                     </div>
                 </div>
             </div>
 
+                            <!-- Botões de ação -->
             <div class="bg-gray-900 p-2 rounded-lg border border-gray-800 flex-shrink-0">
                 <div class="flex gap-2">
-                    <button @click="generateInitialTeams" :disabled="status.teamsGenerated" class="flex-1 bg-purple-700 hover:bg-purple-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
+                                    <button @click="generatePeladaInitialTeams" :disabled="peladaStatus.teamsGenerated" class="flex-1 bg-purple-700 hover:bg-purple-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
                         <i class="ph ph-shuffle text-sm"></i> Sortear Times
                     </button>
-                    <button @click="clearTeams" class="flex-1 bg-red-700 hover:bg-red-600 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
+                                    <button @click="clearPeladaTeams" class="flex-1 bg-red-700 hover:bg-red-600 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
                         <i class="ph ph-trash text-sm"></i> Limpar Tábua
                     </button>
-                    <button @click="rotateTeams" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
+                                    <button @click="rotatePeladaTeams" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
                         <i class="ph ph-arrows-clockwise text-sm"></i> Rotacionar
                     </button>
-                    <button @click="nextMatch" class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
+                                    <button @click="nextPeladaMatch" class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
                         <i class="ph ph-caret-right text-sm"></i> Próximo
                     </button>
                 </div>
             </div>
-
         </section>
 
+                        <!-- Coluna Direita: Filas -->
         <section class="lg:col-span-3 flex flex-col gap-2 h-full min-h-0 overflow-hidden">
             
+                            <!-- Fila de Espera -->
             <div class="bg-gray-900 rounded-lg border border-gray-800 flex flex-col overflow-hidden flex-1 min-h-0">
                 <div class="p-1.5 bg-gray-800 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
                     <h3 class="text-[10px] font-bold text-yellow-500 uppercase tracking-wider">Fila de Espera</h3>
-                    <span class="bg-gray-950 text-[9px] px-1.5 rounded text-gray-400 border border-gray-700">{{ queue.length }}</span>
+                                    <span class="bg-gray-950 text-[9px] px-1.5 rounded text-gray-400 border border-gray-700">{{ peladaQueue.length }}</span>
                 </div>
-                <div class="flex-1 p-1.5 overflow-y-auto bg-black/20" @dragover.prevent @drop="onDrop($event, 'queue')">
-                    <div class="space-y-0.5"> <player-card 
-                            v-for="(p, index) in queue" 
+                                <div class="flex-1 p-1.5 overflow-y-auto bg-black/20" @dragover.prevent @drop="onPeladaDrop($event, 'queue')">
+                                    <div class="space-y-0.5">
+                                        <pelada-player-card 
+                                            v-for="(p, index) in peladaQueue" 
                             :key="p.id" 
                             :player="p" 
                             :index="index + 1" 
@@ -246,32 +825,32 @@
                             :show-remove="true"
                             :show-reorder="true"
                             :is-first="index === 0"
-                            :is-last="index === queue.length - 1"
-                            @dragstart="onDragStart($event, p, 'queue')"
-                            @drop-on-card="onDropOnQueueCard"
-                            @remove-click="removeFromQueue"
-                            @move-up="movePlayerUp"
-                            @move-down="movePlayerDown"
-                        ></player-card>
-                        <div v-if="queue.length === 0" class="text-center text-gray-600 text-[10px] py-10 italic">
+                                            :is-last="index === peladaQueue.length - 1"
+                                            @dragstart="onPeladaDragStart($event, p, 'queue')"
+                                            @drop-on-card="onDropOnPeladaQueueCard"
+                                            @remove-click="removeFromPeladaQueue"
+                                            @move-up="movePeladaPlayerUp"
+                                            @move-down="movePeladaPlayerDown"
+                                        ></pelada-player-card>
+                                        <div v-if="peladaQueue.length === 0" class="text-center text-gray-600 text-[10px] py-10 italic">
                             Ninguém na espera
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Box exclusivo para Goleiros -->
+                            <!-- Fila de Goleiros -->
             <div class="bg-gray-900 rounded-lg border border-yellow-600/40 flex flex-col overflow-hidden flex-shrink-0" style="max-height: 35%;">
                 <div class="p-1.5 bg-yellow-900/30 border-b border-yellow-600/30 flex justify-between items-center flex-shrink-0">
                     <h3 class="text-[10px] font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-1">
                         <i class="ph ph-hand-fist"></i> Goleiros (GK's)
                     </h3>
-                    <span class="bg-gray-950 text-[9px] px-1.5 rounded text-yellow-400 border border-yellow-600/50">{{ goalkeeperQueue.length }}</span>
+                                    <span class="bg-gray-950 text-[9px] px-1.5 rounded text-yellow-400 border border-yellow-600/50">{{ peladaGoalkeeperQueue.length }}</span>
                 </div>
-                <div class="flex-1 p-1.5 overflow-y-auto bg-yellow-950/10" @dragover.prevent @drop="onDrop($event, 'goalkeeperQueue')">
+                                <div class="flex-1 p-1.5 overflow-y-auto bg-yellow-950/10" @dragover.prevent @drop="onPeladaDrop($event, 'goalkeeperQueue')">
                     <div class="space-y-0.5">
-                        <player-card 
-                            v-for="(p, index) in goalkeeperQueue" 
+                                        <pelada-player-card 
+                                            v-for="(p, index) in peladaGoalkeeperQueue" 
                             :key="p.id" 
                             :player="p" 
                             :index="index + 1" 
@@ -279,26 +858,246 @@
                             :show-remove="true"
                             :show-reorder="true"
                             :is-first="index === 0"
-                            :is-last="index === goalkeeperQueue.length - 1"
-                            @dragstart="onDragStart($event, p, 'goalkeeperQueue')"
-                            @drop-on-card="onDropOnGoalkeeperCard"
-                            @remove-click="removeFromGoalkeeperQueue"
-                            @move-up="moveGoalkeeperUp"
-                            @move-down="moveGoalkeeperDown"
-                        ></player-card>
-                        <div v-if="goalkeeperQueue.length === 0" class="text-center text-gray-600 text-[10px] py-6 italic">
+                                            :is-last="index === peladaGoalkeeperQueue.length - 1"
+                                            @dragstart="onPeladaDragStart($event, p, 'goalkeeperQueue')"
+                                            @drop-on-card="onDropOnPeladaGoalkeeperCard"
+                                            @remove-click="removeFromPeladaGoalkeeperQueue"
+                                            @move-up="movePeladaGoalkeeperUp"
+                                            @move-down="movePeladaGoalkeeperDown"
+                                        ></pelada-player-card>
+                                        <div v-if="peladaGoalkeeperQueue.length === 0" class="text-center text-gray-600 text-[10px] py-6 italic">
                             Nenhum goleiro na espera
                         </div>
                     </div>
                 </div>
             </div>
-
         </section>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
+    <!-- ==================== MODAL: CRIAR GRUPO ==================== -->
+    <div v-if="showCreateGroupModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" @click.self="showCreateGroupModal = false">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="p-6 border-b border-gray-800">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <i class="ph ph-users-three text-emerald-400"></i>
+                    Criar novo grupo
+                </h2>
 </div>
 
-<script type="text/x-template" id="player-card-template">
+            <form @submit.prevent="createGroup" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Nome do grupo *</label>
+                    <input 
+                        v-model="createGroupForm.nome_do_grupo" 
+                        type="text" 
+                        required
+                        placeholder="Ex: Pelada de Quinta"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 input-focus"
+                    >
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Cidade</label>
+                        <input 
+                            v-model="createGroupForm.cidade_do_grupo" 
+                            type="text" 
+                            placeholder="Ex: São Paulo"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 input-focus"
+                        >
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Estado</label>
+                        <input 
+                            v-model="createGroupForm.estado_do_grupo" 
+                            type="text" 
+                            placeholder="Ex: SP"
+                            maxlength="2"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 input-focus uppercase"
+                        >
+                    </div>
+                </div>
+                
+                <div v-if="createGroupError" class="bg-red-900/50 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
+                    {{ createGroupError }}
+                </div>
+                
+                <div class="flex gap-3 pt-2">
+                    <button 
+                        type="button" 
+                        @click="showCreateGroupModal = false"
+                        class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg font-medium transition"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        type="submit" 
+                        :disabled="creatingGroup"
+                        class="flex-1 btn-primary text-white py-3 rounded-lg font-medium disabled:opacity-50"
+                    >
+                        <span v-if="creatingGroup" class="flex items-center justify-center gap-2">
+                            <i class="ph ph-spinner animate-spin"></i> Criando...
+                        </span>
+                        <span v-else>Criar grupo</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- ==================== MODAL: GERENCIAR MEMBROS ==================== -->
+    <div v-if="showMembersModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" @click.self="showMembersModal = false">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <i class="ph ph-users text-emerald-400"></i>
+                    Membros do grupo
+                </h2>
+                <button @click="showMembersModal = false" class="p-2 hover:bg-gray-800 rounded-lg transition">
+                    <i class="ph ph-x text-gray-400"></i>
+                </button>
+            </div>
+            
+            <!-- Convidar -->
+            <div class="p-4 border-b border-gray-800 flex-shrink-0">
+                <form @submit.prevent="invitePlayer" class="flex gap-2">
+                    <input 
+                        v-model="inviteEmail" 
+                        type="email" 
+                        placeholder="E-mail do jogador para convidar"
+                        required
+                        class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 input-focus"
+                    >
+                    <label class="flex items-center gap-2 text-sm text-gray-400">
+                        <input type="checkbox" v-model="inviteAsAdmin" class="accent-emerald-500">
+                        Admin
+                    </label>
+                    <button 
+                        type="submit" 
+                        :disabled="invitingPlayer"
+                        class="btn-primary px-4 py-2 rounded-lg font-medium disabled:opacity-50"
+                    >
+                        <span v-if="invitingPlayer"><i class="ph ph-spinner animate-spin"></i></span>
+                        <span v-else>Convidar</span>
+                    </button>
+                </form>
+                <div v-if="inviteError" class="mt-2 text-red-400 text-sm">{{ inviteError }}</div>
+                <div v-if="inviteSuccess" class="mt-2 text-emerald-400 text-sm">{{ inviteSuccess }}</div>
+            </div>
+            
+            <!-- Lista de membros -->
+            <div class="flex-1 overflow-y-auto p-4">
+                <div v-if="loadingMembers" class="flex items-center justify-center py-10">
+                    <i class="ph ph-spinner animate-spin text-2xl text-emerald-500"></i>
+                </div>
+                
+                <div v-else>
+                    <!-- Pendentes -->
+                    <div v-if="pendingMembers.length > 0" class="mb-6">
+                        <h3 class="text-sm font-semibold text-yellow-400 mb-3 flex items-center gap-2">
+                            <i class="ph ph-clock"></i>
+                            Convites Pendentes ({{ pendingMembers.length }})
+                        </h3>
+                        <div class="space-y-2">
+                            <div 
+                                v-for="member in pendingMembers" 
+                                :key="member.jogador_id"
+                                class="flex items-center justify-between bg-gray-800 rounded-lg p-3"
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full avatar-placeholder flex items-center justify-center overflow-hidden">
+                                        <img v-if="member.jogadores?.foto_do_jogador" :src="member.jogadores.foto_do_jogador" class="w-full h-full object-cover">
+                                        <i v-else class="ph ph-user text-gray-400"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-white">{{ member.jogadores?.apelido_do_jogador || member.jogadores?.nome_do_jogador }}</p>
+                                        <p class="text-xs text-gray-400">{{ member.jogadores?.email_do_jogador }}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">Pendente</span>
+                                    <button 
+                                        @click="cancelInvite(member)"
+                                        class="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition"
+                                        title="Cancelar convite"
+                                    >
+                                        <i class="ph ph-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Ativos -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
+                            <i class="ph ph-check-circle"></i>
+                            Membros Ativos ({{ activeMembers.length }})
+                        </h3>
+                        <div class="space-y-2">
+                            <div 
+                                v-for="member in activeMembers" 
+                                :key="member.jogador_id"
+                                class="flex items-center justify-between bg-gray-800 rounded-lg p-3"
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full avatar-placeholder flex items-center justify-center overflow-hidden">
+                                        <img v-if="member.jogadores?.foto_do_jogador" :src="member.jogadores.foto_do_jogador" class="w-full h-full object-cover">
+                                        <i v-else class="ph ph-user text-gray-400"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-white">{{ member.jogadores?.apelido_do_jogador || member.jogadores?.nome_do_jogador }}</p>
+                                        <p class="text-xs text-gray-400">{{ member.jogadores?.email_do_jogador }}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span v-if="member.jogador_id === selectedGroupForMembers?.id_do_responsavel" class="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">Responsável</span>
+                                    <span v-else-if="member.is_admin" class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">Admin</span>
+                                    <span v-else class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">Membro</span>
+                                    
+                                    <!-- Ações (não mostrar para responsável) -->
+                                    <div v-if="member.jogador_id !== selectedGroupForMembers?.id_do_responsavel" class="flex items-center gap-1">
+                                        <button 
+                                            v-if="!member.is_admin"
+                                            @click="promoteToAdmin(member)"
+                                            class="p-2 text-emerald-400 hover:bg-emerald-900/30 rounded-lg transition"
+                                            title="Promover a Admin"
+                                        >
+                                            <i class="ph ph-arrow-up"></i>
+                                        </button>
+                                        <button 
+                                            v-if="member.is_admin && member.jogador_id !== selectedGroupForMembers?.id_do_responsavel"
+                                            @click="demoteFromAdmin(member)"
+                                            class="p-2 text-yellow-400 hover:bg-yellow-900/30 rounded-lg transition"
+                                            title="Remover Admin"
+                                        >
+                                            <i class="ph ph-arrow-down"></i>
+                                        </button>
+                                        <button 
+                                            @click="removeMember(member)"
+                                            class="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition"
+                                            title="Remover do grupo"
+                                        >
+                                            <i class="ph ph-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template do Player Card para Pelada -->
+<script type="text/x-template" id="pelada-player-card-template">
     <div 
         class="draggable-item bg-gray-800 hover:bg-gray-700 rounded flex justify-between items-center shadow-sm border-l-[3px] select-none transition group relative"
         :class="[
@@ -320,7 +1119,6 @@
         </div>
         
         <div class="flex items-center gap-0.5">
-            <!-- Setas de reordenação (aparecem no hover) -->
             <button v-if="showReorder && !isFirst" @click.stop="$emit('move-up', player.id)" class="opacity-0 group-hover:opacity-100 text-blue-400 hover:text-blue-300 p-0.5 rounded hover:bg-gray-900 transition" title="Mover para cima">
                 <i class="ph ph-caret-up text-[10px]"></i>
             </button>
@@ -339,311 +1137,956 @@
 </script>
 
 <script>
-    const { createApp, reactive, ref, computed, onMounted } = Vue;
+    // ==================== SUPABASE CLIENT ====================
+    // const SUPABASE_URL = CONFIG.SUPABASE_URL;
+    // const SUPABASE_ANON_KEY = CONFIG.SUPABASE_ANON_KEY;
+
+    const SUPABASE_URL = 'https://luibashtrpxxohqnxgil.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1aWJhc2h0cnB4eG9ocW54Z2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzNTE4NzgsImV4cCI6MjA4MzkyNzg3OH0.jzVX12VCQlslr_IJWKNc0ZR5zZBzOFLD4kjKac9SYqM';
+    
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    // ==================== VUE APP ====================
+    const { createApp, reactive, ref, computed, onMounted, watch } = Vue;
 
     const app = createApp({
         setup() {
-            // --- ESTADO ---
-            const config = reactive({
+            // ==================== AUTH STATE ====================
+            const session = ref(null);
+            const userProfile = ref(null);
+            const authMode = ref('login');
+            const authForm = reactive({ email: '', password: '', fullName: '' });
+            const authError = ref('');
+            const authSuccess = ref('');
+            const authLoading = ref(false);
+            
+            // ==================== APP STATE ====================
+            const currentView = ref('grupos');
+            const sidebarExpanded = ref(true);
+            const currentGroupId = ref(null);
+            const currentGroupName = ref('');
+            
+            // ==================== GRUPOS STATE ====================
+            const loadingGroups = ref(false);
+            const pendingInvites = ref([]);
+            const adminGroups = ref([]);
+            const memberGroups = ref([]);
+            
+            // ==================== CREATE GROUP ====================
+            const showCreateGroupModal = ref(false);
+            const createGroupForm = reactive({ nome_do_grupo: '', cidade_do_grupo: '', estado_do_grupo: '' });
+            const createGroupError = ref('');
+            const creatingGroup = ref(false);
+            
+            // ==================== MEMBERS MODAL ====================
+            const showMembersModal = ref(false);
+            const selectedGroupForMembers = ref(null);
+            const loadingMembers = ref(false);
+            const pendingMembers = ref([]);
+            const activeMembers = ref([]);
+            const inviteEmail = ref('');
+            const inviteAsAdmin = ref(false);
+            const invitingPlayer = ref(false);
+            const inviteError = ref('');
+            const inviteSuccess = ref('');
+            
+            // ==================== PROFILE STATE ====================
+            const profileForm = reactive({
+                nome_do_jogador: '',
+                apelido_do_jogador: '',
+                numero_telefone: '',
+                cidade_do_jogador: '',
+                estado_do_jogador: '',
+                sexo_do_jogador: '',
+                foto_do_jogador: ''
+            });
+            const profileError = ref('');
+            const profileSuccess = ref('');
+            const savingProfile = ref(false);
+            
+            // ==================== PELADA STATE ====================
+            const peladaConfig = reactive({
                 playersPerTeam: 5, 
                 timeFirstMatch: 10, 
                 timeNormalMatch: 7
             });
-
-            const status = reactive({
+            const peladaStatus = reactive({
                 isFirstMatch: true,
                 teamsGenerated: false,
                 lastUpdate: Date.now()
             });
-
-            const ui = reactive({ showRegister: true });
-            const input = reactive({ goalkeepers: '', lines: '' });
+            const peladaUI = reactive({ showRegister: true });
+            const peladaInput = reactive({ goalkeepers: '', lines: '' });
+            const peladaAllPlayers = ref([]); 
+            const peladaMatch = reactive({ 
+                teamA: [], teamB: [], scoreA: 0, scoreB: 0, 
+                timeLeft: 600, timerRunning: false, hasStarted: false, lastWinner: null 
+            });
+            const peladaQueue = ref([]);
+            const peladaGoalkeeperQueue = ref([]);
             
-            const allPlayers = ref([]); 
-            const match = reactive({ teamA: [], teamB: [], scoreA: 0, scoreB: 0, timeLeft: 600, timerRunning: false, hasStarted: false, lastWinner: null });
-            const queue = ref([]);
-            const goalkeeperQueue = ref([]);
-
-            let timerInterval = null;
-            let draggedItem = null;
-            let sourceList = null;
-
-            // --- COMPUTEDS ---
-            const formattedTime = computed(() => {
-                const m = Math.floor(match.timeLeft / 60).toString().padStart(2, '0');
-                const s = (match.timeLeft % 60).toString().padStart(2, '0');
+            let peladaTimerInterval = null;
+            let peladaDraggedItem = null;
+            let peladaSourceList = null;
+            
+            // ==================== PELADA COMPUTEDS ====================
+            const peladaFormattedTime = computed(() => {
+                const m = Math.floor(peladaMatch.timeLeft / 60).toString().padStart(2, '0');
+                const s = (peladaMatch.timeLeft % 60).toString().padStart(2, '0');
                 return `${m}:${s}`;
             });
-
-            const paidCount = computed(() => allPlayers.value.filter(p => p.paid).length);
-            const arrivedCount = computed(() => allPlayers.value.filter(p => p.arrived).length);
-
-            // --- PERSISTÊNCIA ---
-            const saveData = () => {
-                const data = {
-                    config, status, allPlayers: allPlayers.value, 
-                    match, queue: queue.value, goalkeeperQueue: goalkeeperQueue.value,
-                    timestamp: Date.now()
-                };
-                localStorage.setItem('futebolAppData', JSON.stringify(data));
-            };
-
-            const loadData = () => {
-                const saved = localStorage.getItem('futebolAppData');
-                if (saved) {
-                    const data = JSON.parse(saved);
-                    if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
-                        Object.assign(config, data.config);
-                        Object.assign(status, data.status);
-                        Object.assign(match, data.match);
-                        
-                        // Garantir que todos os jogadores tenham matchesPlayed e arrived
-                        const ensurePlayerProps = (players) => {
-                            return players.map(p => ({ ...p, matchesPlayed: p.matchesPlayed || 0, arrived: p.arrived || false }));
-                        };
-                        const ensureMatchesPlayed = ensurePlayerProps;
-                        
-                        allPlayers.value = ensureMatchesPlayed(data.allPlayers || []);
-                        match.teamA = ensureMatchesPlayed(match.teamA || []);
-                        match.teamB = ensureMatchesPlayed(match.teamB || []);
-                        
-                        // Migrar dados antigos: mover nextTeams para queue
-                        let migratedQueue = data.queue || [];
-                        if (data.nextTeams) {
-                            if (data.nextTeams.team1) migratedQueue = [...data.nextTeams.team1, ...migratedQueue];
-                            if (data.nextTeams.team2) migratedQueue = [...data.nextTeams.team2, ...migratedQueue];
-                        }
-                        queue.value = ensureMatchesPlayed(migratedQueue);
-                        goalkeeperQueue.value = ensureMatchesPlayed(data.goalkeeperQueue || []);
-                        match.timerRunning = false;
+            const peladaPaidCount = computed(() => peladaAllPlayers.value.filter(p => p.paid).length);
+            const peladaArrivedCount = computed(() => peladaAllPlayers.value.filter(p => p.arrived).length);
+            
+            // ==================== AUTH FUNCTIONS ====================
+            const handleAuth = async () => {
+                authError.value = '';
+                authSuccess.value = '';
+                authLoading.value = true;
+                
+                try {
+                    if (authMode.value === 'login') {
+                        const { data, error } = await supabaseClient.auth.signInWithPassword({
+                            email: authForm.email,
+                            password: authForm.password
+                        });
+                        if (error) throw error;
                     } else {
-                        localStorage.removeItem('futebolAppData');
+                        // 1. Criar usuário no Auth
+                        const { data, error } = await supabaseClient.auth.signUp({
+                            email: authForm.email,
+                            password: authForm.password,
+                            options: {
+                                data: { full_name: authForm.fullName }
+                            }
+                        });
+                        if (error) throw error;
+                        
+                        // NOTA: O jogador em public.jogadores é criado automaticamente
+                        // pelo trigger on_auth_user_created no banco de dados.
+                        // Isso é mais robusto pois funciona mesmo antes da confirmação de email.
+                        
+                        authSuccess.value = 'Conta criada! Verifique seu e-mail para confirmar.';
+                    }
+                } catch (err) {
+                    authError.value = err.message || 'Erro ao autenticar';
+                } finally {
+                    authLoading.value = false;
+                }
+            };
+            
+            const handleLogout = async () => {
+                await supabaseClient.auth.signOut();
+                session.value = null;
+                userProfile.value = null;
+            };
+            
+            const bootstrapProfile = async (user) => {
+                if (!user) return;
+                
+                // Buscar perfil existente
+                const { data: profile, error: fetchError } = await supabaseClient
+                    .from('jogadores')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+                
+                // PGRST116 = "no rows returned" (perfil não existe ainda)
+                // 42501 = "permission denied" (RLS bloqueando - pode acontecer durante signup)
+                if (fetchError) {
+                    if (fetchError.code === 'PGRST116') {
+                        // Perfil não existe, vamos criar
+                        console.log('Perfil não encontrado, criando...');
+                    } else if (fetchError.code === '42501') {
+                        // Permission denied - provavelmente sessão inválida ou RLS
+                        console.warn('Sem permissão para acessar jogadores. Verifique se o email foi confirmado.');
+                        return;
+                    } else {
+                        console.error('Erro ao buscar perfil:', fetchError);
+                        return;
                     }
                 }
-            };
-
-            // --- AÇÕES ---
-            const resetAll = () => {
-                if(confirm("Limpar todos os dados?")){
-                    localStorage.removeItem('futebolAppData');
-                    location.reload();
+                
+                if (!profile) {
+                    // Criar perfil
+                    const newProfile = {
+                        id: user.id,
+                        email_do_jogador: user.email,
+                        nome_do_jogador: user.user_metadata?.full_name || user.email,
+                        apelido_do_jogador: null,
+                        foto_do_jogador: null,
+                        cidade_do_jogador: null,
+                        estado_do_jogador: null,
+                        sexo_do_jogador: null,
+                        numero_telefone: null,
+                        created_at: new Date().toISOString()
+                    };
+                    
+                    const { data: created, error: createError } = await supabaseClient
+                        .from('jogadores')
+                        .insert(newProfile)
+                        .select()
+                        .single();
+                    
+                    if (createError) {
+                        // Se já existe (violação de unique), tentar buscar novamente
+                        if (createError.code === '23505') {
+                            const { data: existing } = await supabaseClient
+                                .from('jogadores')
+                                .select('*')
+                                .eq('id', user.id)
+                                .single();
+                            if (existing) {
+                                userProfile.value = existing;
+                            }
+                        } else {
+                            console.error('Erro ao criar perfil:', createError);
+                            return;
+                        }
+                    } else {
+                        userProfile.value = created;
+                    }
+                } else {
+                    userProfile.value = profile;
+                }
+                
+                // Preencher formulário de perfil
+                if (userProfile.value) {
+                    Object.assign(profileForm, {
+                        nome_do_jogador: userProfile.value.nome_do_jogador || '',
+                        apelido_do_jogador: userProfile.value.apelido_do_jogador || '',
+                        numero_telefone: userProfile.value.numero_telefone || '',
+                        cidade_do_jogador: userProfile.value.cidade_do_jogador || '',
+                        estado_do_jogador: userProfile.value.estado_do_jogador || '',
+                        sexo_do_jogador: userProfile.value.sexo_do_jogador || '',
+                        foto_do_jogador: userProfile.value.foto_do_jogador || ''
+                    });
                 }
             };
-
-            const addPlayers = () => {
+            
+            // ==================== NAVIGATION ====================
+            const navigateTo = (view) => {
+                currentView.value = view;
+                if (view === 'grupos') {
+                    loadGroups();
+                }
+            };
+            
+            // ==================== GROUPS FUNCTIONS ====================
+            const loadGroups = async () => {
+                if (!session.value?.user) return;
+                loadingGroups.value = true;
+                
+                try {
+                    const userId = session.value.user.id;
+                    
+                    // Buscar todas as associações do usuário
+                    const { data: memberships, error } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .select(`
+                            grupo_id,
+                            jogador_id,
+                            is_admin,
+                            status,
+                            grupos:grupos (
+                                id,
+                                nome_do_grupo,
+                                cidade_do_grupo,
+                                estado_do_grupo,
+                                id_do_responsavel,
+                                archieved_at
+                            )
+                        `)
+                        .eq('jogador_id', userId);
+                    
+                    if (error) throw error;
+                    
+                    // Filtrar grupos não arquivados
+                    const activeMemberships = (memberships || []).filter(m => !m.grupos?.archieved_at);
+                    
+                    // Separar por tipo
+                    pendingInvites.value = activeMemberships.filter(m => m.status === 'pending');
+                    
+                    const accepted = activeMemberships.filter(m => m.status === 'accepted');
+                    
+                    // Admin groups: is_admin OU é responsável
+                    adminGroups.value = accepted.filter(m => 
+                        m.is_admin || m.grupos?.id_do_responsavel === userId
+                    );
+                    
+                    // Member groups: não é admin E não é responsável
+                    memberGroups.value = accepted.filter(m => 
+                        !m.is_admin && m.grupos?.id_do_responsavel !== userId
+                    );
+                    
+                } catch (err) {
+                    console.error('Erro ao carregar grupos:', err);
+                } finally {
+                    loadingGroups.value = false;
+                }
+            };
+            
+            const openCreateGroupModal = () => {
+                createGroupForm.nome_do_grupo = '';
+                createGroupForm.cidade_do_grupo = '';
+                createGroupForm.estado_do_grupo = '';
+                createGroupError.value = '';
+                showCreateGroupModal.value = true;
+            };
+            
+            const createGroup = async () => {
+                if (!createGroupForm.nome_do_grupo.trim()) {
+                    createGroupError.value = 'Nome do grupo é obrigatório';
+                    return;
+                }
+                
+                creatingGroup.value = true;
+                createGroupError.value = '';
+                
+                try {
+                    const userId = session.value.user.id;
+                    const now = new Date().toISOString();
+                    
+                    // 1. Criar o grupo
+                    const { data: grupo, error: grupoError } = await supabaseClient
+                        .from('grupos')
+                        .insert({
+                            nome_do_grupo: createGroupForm.nome_do_grupo.trim(),
+                            cidade_do_grupo: createGroupForm.cidade_do_grupo.trim() || null,
+                            estado_do_grupo: createGroupForm.estado_do_grupo.trim().toUpperCase() || null,
+                            id_do_responsavel: userId,
+                            created_by: userId,
+                            last_modified_by: userId,
+                            created_at: now,
+                            modified_at: now
+                        })
+                        .select()
+                        .single();
+                    
+                    if (grupoError) throw grupoError;
+                    
+                    // 2. Adicionar criador como membro admin
+                    const { error: memberError } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .insert({
+                            grupo_id: grupo.id,
+                            jogador_id: userId,
+                            is_admin: true,
+                            status: 'accepted',
+                            accepted_at: now,
+                            created_at: now
+                        });
+                    
+                    if (memberError) throw memberError;
+                    
+                    showCreateGroupModal.value = false;
+                    await loadGroups();
+                    
+                } catch (err) {
+                    createGroupError.value = err.message || 'Erro ao criar grupo';
+                } finally {
+                    creatingGroup.value = false;
+                }
+            };
+            
+            const acceptInvite = async (invite) => {
+                try {
+                    const { error } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .update({
+                            status: 'accepted',
+                            accepted_at: new Date().toISOString()
+                        })
+                        .eq('grupo_id', invite.grupo_id)
+                        .eq('jogador_id', session.value.user.id);
+                    
+                    if (error) throw error;
+                    await loadGroups();
+                } catch (err) {
+                    alert('Erro ao aceitar convite: ' + err.message);
+                }
+            };
+            
+            const declineInvite = async (invite) => {
+                if (!confirm('Tem certeza que deseja recusar este convite?')) return;
+                
+                try {
+                    const { error } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .delete()
+                        .eq('grupo_id', invite.grupo_id)
+                        .eq('jogador_id', session.value.user.id);
+                    
+                    if (error) throw error;
+                    await loadGroups();
+                } catch (err) {
+                    alert('Erro ao recusar convite: ' + err.message);
+                }
+            };
+            
+            // ==================== MEMBERS MODAL FUNCTIONS ====================
+            const openMembersModal = async (grupo) => {
+                selectedGroupForMembers.value = grupo;
+                showMembersModal.value = true;
+                inviteEmail.value = '';
+                inviteAsAdmin.value = false;
+                inviteError.value = '';
+                inviteSuccess.value = '';
+                await loadMembers();
+            };
+            
+            const loadMembers = async () => {
+                if (!selectedGroupForMembers.value) return;
+                loadingMembers.value = true;
+                
+                try {
+                    // Debug: verificar o ID do grupo
+                    const grupoId = selectedGroupForMembers.value.id;
+                    console.log('Carregando membros do grupo:', grupoId);
+                    
+                    const { data, error } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .select(`
+                            grupo_id,
+                            jogador_id,
+                            is_admin,
+                            status,
+                            jogadores:jogadores (
+                                id,
+                                nome_do_jogador,
+                                apelido_do_jogador,
+                                email_do_jogador,
+                                foto_do_jogador
+                            )
+                        `)
+                        .eq('grupo_id', grupoId);
+                    
+                    if (error) throw error;
+                    
+                    console.log('Membros encontrados:', data);
+                    
+                    pendingMembers.value = (data || []).filter(m => m.status === 'pending');
+                    activeMembers.value = (data || []).filter(m => m.status === 'accepted');
+                    
+                    console.log('Membros ativos:', activeMembers.value.length);
+                    console.log('Membros pendentes:', pendingMembers.value.length);
+                    
+                } catch (err) {
+                    console.error('Erro ao carregar membros:', err);
+                } finally {
+                    loadingMembers.value = false;
+                }
+            };
+            
+            const invitePlayer = async () => {
+                if (!inviteEmail.value.trim()) return;
+                
+                invitingPlayer.value = true;
+                inviteError.value = '';
+                inviteSuccess.value = '';
+                
+                try {
+                    // Buscar jogador por email (case-insensitive)
+                    const { data: jogador, error: searchError } = await supabaseClient
+                        .from('jogadores')
+                        .select('id, nome_do_jogador, email_do_jogador')
+                        .ilike('email_do_jogador', inviteEmail.value.trim())
+                        .single();
+                    
+                    if (searchError || !jogador) {
+                        inviteError.value = 'Jogador não encontrado. O jogador precisa se cadastrar no app antes de receber convite.';
+                        return;
+                    }
+                    
+                    // Verificar se já existe associação
+                    const { data: existing } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .select('status')
+                        .eq('grupo_id', selectedGroupForMembers.value.id)
+                        .eq('jogador_id', jogador.id)
+                        .single();
+                    
+                    if (existing) {
+                        inviteError.value = existing.status === 'pending' 
+                            ? 'Este jogador já possui um convite pendente.'
+                            : 'Este jogador já é membro do grupo.';
+                        return;
+                    }
+                    
+                    // Criar convite
+                    const now = new Date().toISOString();
+                    const { error: inviteErr } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .insert({
+                            grupo_id: selectedGroupForMembers.value.id,
+                            jogador_id: jogador.id,
+                            is_admin: inviteAsAdmin.value,
+                            status: 'pending',
+                            invited_by: session.value.user.id,
+                            invited_at: now,
+                            created_at: now
+                        });
+                    
+                    if (inviteErr) throw inviteErr;
+                    
+                    inviteSuccess.value = `Convite enviado para ${jogador.nome_do_jogador}!`;
+                    inviteEmail.value = '';
+                    inviteAsAdmin.value = false;
+                    await loadMembers();
+                    
+                } catch (err) {
+                    inviteError.value = err.message || 'Erro ao enviar convite';
+                } finally {
+                    invitingPlayer.value = false;
+                }
+            };
+            
+            const cancelInvite = async (member) => {
+                if (!confirm('Cancelar este convite?')) return;
+                
+                try {
+                    const { error } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .delete()
+                        .eq('grupo_id', selectedGroupForMembers.value.id)
+                        .eq('jogador_id', member.jogador_id);
+                    
+                    if (error) throw error;
+                    await loadMembers();
+                } catch (err) {
+                    alert('Erro: ' + err.message);
+                }
+            };
+            
+            const promoteToAdmin = async (member) => {
+                try {
+                    const { error } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .update({ is_admin: true })
+                        .eq('grupo_id', selectedGroupForMembers.value.id)
+                        .eq('jogador_id', member.jogador_id);
+                    
+                    if (error) throw error;
+                    await loadMembers();
+                } catch (err) {
+                    alert('Erro: ' + err.message);
+                }
+            };
+            
+            const demoteFromAdmin = async (member) => {
+                try {
+                    const { error } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .update({ is_admin: false })
+                        .eq('grupo_id', selectedGroupForMembers.value.id)
+                        .eq('jogador_id', member.jogador_id);
+                    
+                    if (error) throw error;
+                    await loadMembers();
+                } catch (err) {
+                    alert('Erro: ' + err.message);
+                }
+            };
+            
+            const removeMember = async (member) => {
+                if (member.jogador_id === selectedGroupForMembers.value.id_do_responsavel) {
+                    alert('Não é possível remover o responsável do grupo.');
+                    return;
+                }
+                
+                if (!confirm('Remover este membro do grupo?')) return;
+                
+                try {
+                    const { error } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .delete()
+                        .eq('grupo_id', selectedGroupForMembers.value.id)
+                        .eq('jogador_id', member.jogador_id);
+                    
+                    if (error) throw error;
+                    await loadMembers();
+                } catch (err) {
+                    alert('Erro: ' + err.message);
+                }
+            };
+            
+            // ==================== PROFILE FUNCTIONS ====================
+            const saveProfile = async () => {
+                savingProfile.value = true;
+                profileError.value = '';
+                profileSuccess.value = '';
+                
+                try {
+                    const { error } = await supabaseClient
+                        .from('jogadores')
+                        .update({
+                            nome_do_jogador: profileForm.nome_do_jogador,
+                            apelido_do_jogador: profileForm.apelido_do_jogador || null,
+                            numero_telefone: profileForm.numero_telefone || null,
+                            cidade_do_jogador: profileForm.cidade_do_jogador || null,
+                            estado_do_jogador: profileForm.estado_do_jogador?.toUpperCase() || null,
+                            sexo_do_jogador: profileForm.sexo_do_jogador || null,
+                            foto_do_jogador: profileForm.foto_do_jogador || null,
+                            modified_at: new Date().toISOString()
+                        })
+                        .eq('id', session.value.user.id);
+                    
+                    if (error) throw error;
+                    
+                    // Atualizar userProfile
+                    userProfile.value = { ...userProfile.value, ...profileForm };
+                    profileSuccess.value = 'Perfil atualizado com sucesso!';
+                    
+                    setTimeout(() => { profileSuccess.value = ''; }, 3000);
+                } catch (err) {
+                    profileError.value = err.message || 'Erro ao salvar perfil';
+                } finally {
+                    savingProfile.value = false;
+                }
+            };
+            
+            // ==================== PELADA FUNCTIONS ====================
+            const getPeladaStorageKey = () => {
+                if (!session.value?.user?.id || !currentGroupId.value) return null;
+                return `lapelota:pelada:${session.value.user.id}:${currentGroupId.value}`;
+            };
+            
+            const savePeladaData = () => {
+                const key = getPeladaStorageKey();
+                if (!key) return;
+                
+                const data = {
+                    config: peladaConfig,
+                    status: peladaStatus,
+                    allPlayers: peladaAllPlayers.value,
+                    match: peladaMatch,
+                    queue: peladaQueue.value,
+                    goalkeeperQueue: peladaGoalkeeperQueue.value,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem(key, JSON.stringify(data));
+            };
+            
+            const loadPeladaData = () => {
+                const key = getPeladaStorageKey();
+                if (!key) return false;
+                
+                const saved = localStorage.getItem(key);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    // Verificar expiração de 24h
+                    if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
+                        Object.assign(peladaConfig, data.config || {});
+                        Object.assign(peladaStatus, data.status || {});
+                        Object.assign(peladaMatch, data.match || {});
+                        
+                        const ensurePlayerProps = (players) => {
+                            return (players || []).map(p => ({ 
+                                ...p, 
+                                matchesPlayed: p.matchesPlayed || 0, 
+                                arrived: p.arrived || false 
+                            }));
+                        };
+                        
+                        peladaAllPlayers.value = ensurePlayerProps(data.allPlayers);
+                        peladaMatch.teamA = ensurePlayerProps(peladaMatch.teamA);
+                        peladaMatch.teamB = ensurePlayerProps(peladaMatch.teamB);
+                        peladaQueue.value = ensurePlayerProps(data.queue);
+                        peladaGoalkeeperQueue.value = ensurePlayerProps(data.goalkeeperQueue);
+                        peladaMatch.timerRunning = false;
+                        return true;
+                    } else {
+                        localStorage.removeItem(key);
+                    }
+                }
+                return false;
+            };
+            
+            const loadGroupPlayersForPelada = async (grupoId) => {
+                try {
+                    console.log('Carregando jogadores para pelada do grupo:', grupoId);
+                    
+                    const { data, error } = await supabaseClient
+                        .from('grupos_jogadores')
+                        .select(`
+                            jogador_id,
+                            is_admin,
+                            status,
+                            jogadores:jogadores (
+                                id,
+                                nome_do_jogador,
+                                apelido_do_jogador,
+                                foto_do_jogador
+                            )
+                        `)
+                        .eq('grupo_id', grupoId)
+                        .eq('status', 'accepted');
+                    
+                    if (error) throw error;
+                    
+                    console.log('Jogadores encontrados no banco:', data);
+                    
+                    // Mapear para formato do módulo de pelada
+                    const players = (data || []).map(d => ({
+                        id: d.jogadores?.id || d.jogador_id || String(Date.now() + Math.random()),
+                        name: d.jogadores?.apelido_do_jogador || d.jogadores?.nome_do_jogador || 'Jogador',
+                        role: 'LINE',
+                        paid: false,
+                        arrived: false,
+                        matchesPlayed: 0
+                    }));
+                    
+                    console.log('Jogadores mapeados para pelada:', players);
+                    
+                    return players;
+                } catch (err) {
+                    console.error('Erro ao carregar jogadores do grupo:', err);
+                    return [];
+                }
+            };
+            
+            const openPelada = async (grupoId) => {
+                currentGroupId.value = grupoId;
+                
+                // Buscar nome do grupo
+                const group = adminGroups.value.find(g => g.grupos?.id === grupoId);
+                currentGroupName.value = group?.grupos?.nome_do_grupo || 'Grupo';
+                
+                // Tentar carregar dados salvos do localStorage
+                const hasData = loadPeladaData();
+                
+                // SEMPRE carregar jogadores do banco para garantir lista atualizada
+                const playersFromDB = await loadGroupPlayersForPelada(grupoId);
+                
+                if (!hasData) {
+                    // Primeira vez: resetar estado e usar jogadores do banco
+                    peladaQueue.value = [];
+                    peladaGoalkeeperQueue.value = [];
+                    peladaMatch.teamA = [];
+                    peladaMatch.teamB = [];
+                    peladaMatch.scoreA = 0;
+                    peladaMatch.scoreB = 0;
+                    peladaMatch.timeLeft = peladaConfig.timeFirstMatch * 60;
+                    peladaMatch.timerRunning = false;
+                    peladaMatch.hasStarted = false;
+                    peladaMatch.lastWinner = null;
+                    peladaStatus.isFirstMatch = true;
+                    peladaStatus.teamsGenerated = false;
+                    
+                    // Usar jogadores do banco
+                    peladaAllPlayers.value = playersFromDB;
+                } else {
+                    // Já tem dados: mesclar jogadores do banco com os existentes
+                    // Adicionar novos jogadores do banco que não estão em nenhuma lista
+                    const existingIds = new Set([
+                        ...peladaAllPlayers.value.map(p => p.id),
+                        ...peladaQueue.value.map(p => p.id),
+                        ...peladaGoalkeeperQueue.value.map(p => p.id),
+                        ...peladaMatch.teamA.map(p => p.id),
+                        ...peladaMatch.teamB.map(p => p.id)
+                    ]);
+                    
+                    // Adicionar jogadores novos do banco à lista de cadastro
+                    const newPlayers = playersFromDB.filter(p => !existingIds.has(p.id));
+                    if (newPlayers.length > 0) {
+                        console.log('Novos jogadores adicionados:', newPlayers);
+                        peladaAllPlayers.value = [...peladaAllPlayers.value, ...newPlayers];
+                    }
+                }
+                
+                currentView.value = 'pelada';
+            };
+            
+            const resetPelada = () => {
+                if (!confirm("Limpar todos os dados desta pelada?")) return;
+                const key = getPeladaStorageKey();
+                if (key) localStorage.removeItem(key);
+                openPelada(currentGroupId.value);
+            };
+            
+            // Funções do módulo de pelada
+            const addPeladaPlayers = () => {
                 const process = (text, role) => {
-                    if(!text) return;
+                    if (!text) return;
                     text.split('\n').forEach(line => {
                         const name = line.trim();
-                        if(name) {
-                            allPlayers.value.push({
-                                id: Date.now() + Math.random(),
+                        if (name) {
+                            peladaAllPlayers.value.push({
+                                id: String(Date.now()) + String(Math.random()),
                                 name, role, paid: false, arrived: false, matchesPlayed: 0
                             });
                         }
                     });
                 };
-                process(input.goalkeepers, 'GK');
-                process(input.lines, 'LINE');
-                input.goalkeepers = '';
-                input.lines = '';
-                saveData();
+                process(peladaInput.goalkeepers, 'GK');
+                process(peladaInput.lines, 'LINE');
+                peladaInput.goalkeepers = '';
+                peladaInput.lines = '';
+                savePeladaData();
             };
-
-            const markAllPaid = () => {
-                if(confirm("Marcar TODOS os jogadores listados como PAGOS?")) {
-                    allPlayers.value.forEach(p => p.paid = true);
-                    saveData();
+            
+            const markAllPeladaPaid = () => {
+                if (confirm("Marcar TODOS os jogadores listados como PAGOS?")) {
+                    peladaAllPlayers.value.forEach(p => p.paid = true);
+                    savePeladaData();
                 }
             };
-
-            const markAllArrivedAndQueue = () => {
-                if(confirm("Marcar TODOS como 'Chegaram' e enviar os PAGOS para a fila de espera?")) {
-                    // Marca todos como "chegou"
-                    allPlayers.value.forEach(p => {
-                        p.arrived = true;
-                    });
+            
+            const markAllPeladaArrivedAndQueue = () => {
+                if (confirm("Marcar TODOS como 'Chegaram' e enviar os PAGOS para a fila de espera?")) {
+                    peladaAllPlayers.value.forEach(p => p.arrived = true);
                     
-                    // Envia para a fila apenas os que estão pagos
-                    const paidPlayers = allPlayers.value.filter(p => p.paid);
+                    const paidPlayers = peladaAllPlayers.value.filter(p => p.paid);
                     paidPlayers.forEach(p => {
-                        // Goleiros vão para a fila de goleiros, outros para a fila normal
                         if (p.role === 'GK') {
-                            if (!goalkeeperQueue.value.find(q => q.id === p.id)) {
-                                goalkeeperQueue.value.push({ ...p });
+                            if (!peladaGoalkeeperQueue.value.find(q => q.id === p.id)) {
+                                peladaGoalkeeperQueue.value.push({ ...p });
                             }
                         } else {
-                            if (!queue.value.find(q => q.id === p.id)) {
-                                queue.value.push({ ...p });
+                            if (!peladaQueue.value.find(q => q.id === p.id)) {
+                                peladaQueue.value.push({ ...p });
                             }
                         }
                     });
                     
-                    // Remove do cadastro apenas os jogadores pagos (que foram para a fila)
-                    allPlayers.value = allPlayers.value.filter(p => !p.paid);
-                    saveData();
+                    peladaAllPlayers.value = peladaAllPlayers.value.filter(p => !p.paid);
+                    savePeladaData();
                 }
             };
 
-            const onArrivedChange = (player) => {
+            const onPeladaArrivedChange = (player) => {
                 if (player.arrived && player.paid) {
-                    // Goleiros vão para a fila de goleiros, outros para a fila normal
                     if (player.role === 'GK') {
-                        if (!goalkeeperQueue.value.find(q => q.id === player.id)) {
-                            goalkeeperQueue.value.push({ ...player });
+                        if (!peladaGoalkeeperQueue.value.find(q => q.id === player.id)) {
+                            peladaGoalkeeperQueue.value.push({ ...player });
                         }
                     } else {
-                        if (!queue.value.find(q => q.id === player.id)) {
-                            queue.value.push({ ...player });
+                        if (!peladaQueue.value.find(q => q.id === player.id)) {
+                            peladaQueue.value.push({ ...player });
                         }
                     }
-                    // Remove do cadastro
-                    allPlayers.value = allPlayers.value.filter(p => p.id !== player.id);
+                    peladaAllPlayers.value = peladaAllPlayers.value.filter(p => p.id !== player.id);
                 }
-                saveData();
+                savePeladaData();
             };
 
-            const onPaidChange = (player) => {
+            const onPeladaPaidChange = (player) => {
                 if (player.paid && player.arrived) {
-                    // Goleiros vão para a fila de goleiros, outros para a fila normal
                     if (player.role === 'GK') {
-                        if (!goalkeeperQueue.value.find(q => q.id === player.id)) {
-                            goalkeeperQueue.value.push({ ...player });
+                        if (!peladaGoalkeeperQueue.value.find(q => q.id === player.id)) {
+                            peladaGoalkeeperQueue.value.push({ ...player });
                         }
                     } else {
-                        if (!queue.value.find(q => q.id === player.id)) {
-                            queue.value.push({ ...player });
+                        if (!peladaQueue.value.find(q => q.id === player.id)) {
+                            peladaQueue.value.push({ ...player });
                         }
                     }
-                    // Remove do cadastro
-                    allPlayers.value = allPlayers.value.filter(p => p.id !== player.id);
+                    peladaAllPlayers.value = peladaAllPlayers.value.filter(p => p.id !== player.id);
                 }
-                saveData();
+                savePeladaData();
             };
-
-            const onDragStartFromRegister = (evt, player) => {
-                draggedItem = player;
-                sourceList = 'register';
+            
+            const onPeladaDragStartFromRegister = (evt, player) => {
+                peladaDraggedItem = player;
+                peladaSourceList = 'register';
                 evt.dataTransfer.effectAllowed = 'move';
             };
 
-            const onDropOnRegister = (evt) => {
-                // Não faz nada ao soltar no cadastro (área apenas de origem)
-                draggedItem = null;
-                sourceList = null;
+            const onDropOnPeladaRegister = (evt) => {
+                peladaDraggedItem = null;
+                peladaSourceList = null;
             };
-
-            const removeFromQueue = (id) => {
-                if(confirm("Remover este jogador da fila de espera?")) {
-                    queue.value = queue.value.filter(p => p.id !== id);
-                    saveData();
+            
+            const removeFromPeladaQueue = (id) => {
+                if (confirm("Remover este jogador da fila de espera?")) {
+                    peladaQueue.value = peladaQueue.value.filter(p => p.id !== id);
+                    savePeladaData();
                 }
             };
-
-            const movePlayerUp = (id) => {
-                const index = queue.value.findIndex(p => p.id === id);
+            
+            const movePeladaPlayerUp = (id) => {
+                const index = peladaQueue.value.findIndex(p => p.id === id);
                 if (index > 0) {
-                    // Troca com o jogador acima
-                    [queue.value[index - 1], queue.value[index]] = [queue.value[index], queue.value[index - 1]];
-                    saveData();
+                    [peladaQueue.value[index - 1], peladaQueue.value[index]] = [peladaQueue.value[index], peladaQueue.value[index - 1]];
+                    savePeladaData();
                 }
             };
-
-            const movePlayerDown = (id) => {
-                const index = queue.value.findIndex(p => p.id === id);
-                if (index < queue.value.length - 1) {
-                    // Troca com o jogador abaixo
-                    [queue.value[index], queue.value[index + 1]] = [queue.value[index + 1], queue.value[index]];
-                    saveData();
+            
+            const movePeladaPlayerDown = (id) => {
+                const index = peladaQueue.value.findIndex(p => p.id === id);
+                if (index < peladaQueue.value.length - 1) {
+                    [peladaQueue.value[index], peladaQueue.value[index + 1]] = [peladaQueue.value[index + 1], peladaQueue.value[index]];
+                    savePeladaData();
                 }
             };
-
-            // Funções para a fila de goleiros
-            const removeFromGoalkeeperQueue = (id) => {
-                if(confirm("Remover este goleiro da fila de goleiros?")) {
-                    goalkeeperQueue.value = goalkeeperQueue.value.filter(p => p.id !== id);
-                    saveData();
+            
+            const removeFromPeladaGoalkeeperQueue = (id) => {
+                if (confirm("Remover este goleiro da fila de goleiros?")) {
+                    peladaGoalkeeperQueue.value = peladaGoalkeeperQueue.value.filter(p => p.id !== id);
+                    savePeladaData();
                 }
             };
-
-            const moveGoalkeeperUp = (id) => {
-                const index = goalkeeperQueue.value.findIndex(p => p.id === id);
+            
+            const movePeladaGoalkeeperUp = (id) => {
+                const index = peladaGoalkeeperQueue.value.findIndex(p => p.id === id);
                 if (index > 0) {
-                    [goalkeeperQueue.value[index - 1], goalkeeperQueue.value[index]] = [goalkeeperQueue.value[index], goalkeeperQueue.value[index - 1]];
-                    saveData();
+                    [peladaGoalkeeperQueue.value[index - 1], peladaGoalkeeperQueue.value[index]] = [peladaGoalkeeperQueue.value[index], peladaGoalkeeperQueue.value[index - 1]];
+                    savePeladaData();
                 }
             };
-
-            const moveGoalkeeperDown = (id) => {
-                const index = goalkeeperQueue.value.findIndex(p => p.id === id);
-                if (index < goalkeeperQueue.value.length - 1) {
-                    [goalkeeperQueue.value[index], goalkeeperQueue.value[index + 1]] = [goalkeeperQueue.value[index + 1], goalkeeperQueue.value[index]];
-                    saveData();
+            
+            const movePeladaGoalkeeperDown = (id) => {
+                const index = peladaGoalkeeperQueue.value.findIndex(p => p.id === id);
+                if (index < peladaGoalkeeperQueue.value.length - 1) {
+                    [peladaGoalkeeperQueue.value[index], peladaGoalkeeperQueue.value[index + 1]] = [peladaGoalkeeperQueue.value[index + 1], peladaGoalkeeperQueue.value[index]];
+                    savePeladaData();
                 }
             };
-
-            const onDropOnGoalkeeperCard = (targetPlayerId) => {
-                if (!draggedItem) return;
+            
+            const onDropOnPeladaGoalkeeperCard = (targetPlayerId) => {
+                if (!peladaDraggedItem) return;
                 
-                if (sourceList === 'goalkeeperQueue') {
-                    const fromIndex = goalkeeperQueue.value.findIndex(p => p.id === draggedItem.id);
-                    const toIndex = goalkeeperQueue.value.findIndex(p => p.id === targetPlayerId);
+                if (peladaSourceList === 'goalkeeperQueue') {
+                    const fromIndex = peladaGoalkeeperQueue.value.findIndex(p => p.id === peladaDraggedItem.id);
+                    const toIndex = peladaGoalkeeperQueue.value.findIndex(p => p.id === targetPlayerId);
                     
                     if (fromIndex > -1 && toIndex > -1) {
-                        const [movedPlayer] = goalkeeperQueue.value.splice(fromIndex, 1);
-                        goalkeeperQueue.value.splice(toIndex, 0, movedPlayer);
+                        const [movedPlayer] = peladaGoalkeeperQueue.value.splice(fromIndex, 1);
+                        peladaGoalkeeperQueue.value.splice(toIndex, 0, movedPlayer);
                     }
                 } else {
-                    if (sourceList === 'teamA') match.teamA = match.teamA.filter(p => p.id !== draggedItem.id);
-                    else if (sourceList === 'teamB') match.teamB = match.teamB.filter(p => p.id !== draggedItem.id);
-                    else if (sourceList === 'queue') queue.value = queue.value.filter(p => p.id !== draggedItem.id);
+                    if (peladaSourceList === 'teamA') peladaMatch.teamA = peladaMatch.teamA.filter(p => p.id !== peladaDraggedItem.id);
+                    else if (peladaSourceList === 'teamB') peladaMatch.teamB = peladaMatch.teamB.filter(p => p.id !== peladaDraggedItem.id);
+                    else if (peladaSourceList === 'queue') peladaQueue.value = peladaQueue.value.filter(p => p.id !== peladaDraggedItem.id);
                     
-                    const toIndex = goalkeeperQueue.value.findIndex(p => p.id === targetPlayerId);
-                    if(toIndex > -1) {
-                        goalkeeperQueue.value.splice(toIndex, 0, draggedItem);
+                    const toIndex = peladaGoalkeeperQueue.value.findIndex(p => p.id === targetPlayerId);
+                    if (toIndex > -1) {
+                        peladaGoalkeeperQueue.value.splice(toIndex, 0, peladaDraggedItem);
                     } else {
-                        goalkeeperQueue.value.push(draggedItem);
+                        peladaGoalkeeperQueue.value.push(peladaDraggedItem);
                     }
                 }
                 
-                draggedItem = null;
-                sourceList = null;
-                saveData();
+                peladaDraggedItem = null;
+                peladaSourceList = null;
+                savePeladaData();
             };
-
-            // Função para selecionar N elementos aleatórios de um array (sem modificar o original)
-            const selectRandom = (arr, count) => {
-                const indices = [];
-                const selected = [];
-                const available = [...arr];
-                
-                while (selected.length < count && available.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * available.length);
-                    selected.push(available.splice(randomIndex, 1)[0]);
-                }
-                
-                return selected;
-            };
-
-            // SORTEAR TIMES (a partir da fila de espera e fila de goleiros)
-            // Pega os PRIMEIROS jogadores das filas (ordem de chegada) e SORTEIA entre os times
-            const generateInitialTeams = () => {
-                if (queue.value.length === 0 && goalkeeperQueue.value.length === 0) {
+            
+            const generatePeladaInitialTeams = () => {
+                if (peladaQueue.value.length === 0 && peladaGoalkeeperQueue.value.length === 0) {
                     alert("As filas de espera estão vazias! Adicione jogadores primeiro.");
                     return;
                 }
 
-                // Limpar times
-                match.teamA = [];
-                match.teamB = [];
+                peladaMatch.teamA = [];
+                peladaMatch.teamB = [];
 
-                // Função para sortear jogadores entre os times respeitando o limite
                 const sortearEntreTimesComLimite = (jogadores, limiteA, limiteB) => {
                     const paraTimeA = [];
                     const paraTimeB = [];
                     
                     for (const jogador of jogadores) {
-                        // Se ambos os times ainda têm vaga, sorteia
                         if (paraTimeA.length < limiteA && paraTimeB.length < limiteB) {
                             if (Math.random() < 0.5) {
                                 paraTimeA.push(jogador);
@@ -651,10 +2094,8 @@
                                 paraTimeB.push(jogador);
                             }
                         } else if (paraTimeA.length < limiteA) {
-                            // Só Time A tem vaga
                             paraTimeA.push(jogador);
                         } else if (paraTimeB.length < limiteB) {
-                            // Só Time B tem vaga
                             paraTimeB.push(jogador);
                         }
                     }
@@ -662,447 +2103,358 @@
                     return { paraTimeA, paraTimeB };
                 };
 
-                // === GOLEIROS ===
-                // Pegar os 2 primeiros goleiros da fila (na ordem)
-                const goleirosSelecionados = goalkeeperQueue.value.slice(0, 2);
+                const goleirosSelecionados = peladaGoalkeeperQueue.value.slice(0, 2);
                 let goleirosUsados = 0;
                 
                 if (goleirosSelecionados.length >= 2) {
-                    // Tem 2 goleiros: sorteia qual vai para cada time
                     const resultado = sortearEntreTimesComLimite(goleirosSelecionados, 1, 1);
-                    match.teamA.push(...resultado.paraTimeA);
-                    match.teamB.push(...resultado.paraTimeB);
+                    peladaMatch.teamA.push(...resultado.paraTimeA);
+                    peladaMatch.teamB.push(...resultado.paraTimeB);
                     goleirosUsados = 2;
                 } else if (goleirosSelecionados.length === 1) {
-                    // Tem apenas 1 goleiro: sorteia para qual time vai
                     const gk = goleirosSelecionados[0];
                     if (Math.random() < 0.5) {
-                        match.teamA.push(gk);
+                        peladaMatch.teamA.push(gk);
                     } else {
-                        match.teamB.push(gk);
+                        peladaMatch.teamB.push(gk);
                     }
                     goleirosUsados = 1;
                 }
-                // Se não houver goleiros, os times serão preenchidos apenas com jogadores de linha
-
-                // Remover goleiros usados da fila de goleiros
-                goalkeeperQueue.value = goalkeeperQueue.value.slice(goleirosUsados);
-
-                // === JOGADORES DE LINHA ===
-                // Quantos jogadores de linha precisamos para cada time
-                const linesNeededA = config.playersPerTeam - match.teamA.length;
-                const linesNeededB = config.playersPerTeam - match.teamB.length;
+                
+                peladaGoalkeeperQueue.value = peladaGoalkeeperQueue.value.slice(goleirosUsados);
+                
+                const linesNeededA = peladaConfig.playersPerTeam - peladaMatch.teamA.length;
+                const linesNeededB = peladaConfig.playersPerTeam - peladaMatch.teamB.length;
                 const totalLinesNeeded = linesNeededA + linesNeededB;
 
-                // Pegar os PRIMEIROS jogadores de linha da fila (na ordem de chegada)
-                const jogadoresLinhaSelecionados = queue.value.slice(0, totalLinesNeeded);
-                
-                // Sortear esses jogadores entre os times
+                const jogadoresLinhaSelecionados = peladaQueue.value.slice(0, totalLinesNeeded);
                 const resultadoLinhas = sortearEntreTimesComLimite(jogadoresLinhaSelecionados, linesNeededA, linesNeededB);
-                match.teamA.push(...resultadoLinhas.paraTimeA);
-                match.teamB.push(...resultadoLinhas.paraTimeB);
+                peladaMatch.teamA.push(...resultadoLinhas.paraTimeA);
+                peladaMatch.teamB.push(...resultadoLinhas.paraTimeB);
+                peladaQueue.value = peladaQueue.value.slice(jogadoresLinhaSelecionados.length);
                 
-                // Remover jogadores usados da fila
-                queue.value = queue.value.slice(jogadoresLinhaSelecionados.length);
-
-                // === SE AINDA FALTAM JOGADORES (por falta de goleiros) ===
-                // Completar com jogadores de linha da fila
-                const faltamA = config.playersPerTeam - match.teamA.length;
-                const faltamB = config.playersPerTeam - match.teamB.length;
+                const faltamA = peladaConfig.playersPerTeam - peladaMatch.teamA.length;
+                const faltamB = peladaConfig.playersPerTeam - peladaMatch.teamB.length;
                 
                 if (faltamA > 0 || faltamB > 0) {
-                    const jogadoresExtras = queue.value.slice(0, faltamA + faltamB);
+                    const jogadoresExtras = peladaQueue.value.slice(0, faltamA + faltamB);
                     const resultadoExtras = sortearEntreTimesComLimite(jogadoresExtras, faltamA, faltamB);
-                    match.teamA.push(...resultadoExtras.paraTimeA);
-                    match.teamB.push(...resultadoExtras.paraTimeB);
-                    queue.value = queue.value.slice(jogadoresExtras.length);
+                    peladaMatch.teamA.push(...resultadoExtras.paraTimeA);
+                    peladaMatch.teamB.push(...resultadoExtras.paraTimeB);
+                    peladaQueue.value = peladaQueue.value.slice(jogadoresExtras.length);
                 }
-
-                // Marcar que o sorteio inicial foi feito
-                status.teamsGenerated = true;
-
-                resetTimer(true);
-                ui.showRegister = false;
-                saveData();
+                
+                peladaStatus.teamsGenerated = true;
+                resetPeladaTimer(true);
+                peladaUI.showRegister = false;
+                savePeladaData();
             };
-
-            // Timer
-            const toggleTimer = () => {
-                match.timerRunning = !match.timerRunning;
-                if (match.timerRunning) {
-                    match.hasStarted = true;
-                    timerInterval = setInterval(() => {
-                        if (match.timeLeft > 0) {
-                            match.timeLeft--;
-                            saveData(); 
+            
+            const togglePeladaTimer = () => {
+                peladaMatch.timerRunning = !peladaMatch.timerRunning;
+                if (peladaMatch.timerRunning) {
+                    peladaMatch.hasStarted = true;
+                    peladaTimerInterval = setInterval(() => {
+                        if (peladaMatch.timeLeft > 0) {
+                            peladaMatch.timeLeft--;
+                            savePeladaData();
                         } else {
-                            match.timerRunning = false;
-                            clearInterval(timerInterval);
-                            // Incrementar contador de partidas para jogadores em campo
-                            match.teamA.forEach(p => {
-                                p.matchesPlayed = (p.matchesPlayed || 0) + 1;
-                            });
-                            match.teamB.forEach(p => {
-                                p.matchesPlayed = (p.matchesPlayed || 0) + 1;
-                            });
-                            // Determinar vencedor da partida
-                            if (match.scoreA > match.scoreB) {
-                                match.lastWinner = 'A';
-                            } else if (match.scoreB > match.scoreA) {
-                                match.lastWinner = 'B';
+                            peladaMatch.timerRunning = false;
+                            clearInterval(peladaTimerInterval);
+                            peladaMatch.teamA.forEach(p => p.matchesPlayed = (p.matchesPlayed || 0) + 1);
+                            peladaMatch.teamB.forEach(p => p.matchesPlayed = (p.matchesPlayed || 0) + 1);
+                            if (peladaMatch.scoreA > peladaMatch.scoreB) {
+                                peladaMatch.lastWinner = 'A';
+                            } else if (peladaMatch.scoreB > peladaMatch.scoreA) {
+                                peladaMatch.lastWinner = 'B';
                             } else {
-                                match.lastWinner = null; // Empate
+                                peladaMatch.lastWinner = null;
                             }
-                            saveData();
+                            savePeladaData();
                             alert("Fim de Jogo!");
                         }
                     }, 1000);
                 } else {
-                    clearInterval(timerInterval);
-                    saveData();
+                    clearInterval(peladaTimerInterval);
+                    savePeladaData();
                 }
             };
-
-            const resetTimer = (isFirst) => {
-                clearInterval(timerInterval);
-                match.timerRunning = false;
-                match.hasStarted = false;
-                status.isFirstMatch = isFirst;
-                match.timeLeft = (isFirst ? config.timeFirstMatch : config.timeNormalMatch) * 60;
-                match.scoreA = 0;
-                match.scoreB = 0;
-                saveData();
+            
+            const resetPeladaTimer = (isFirst) => {
+                clearInterval(peladaTimerInterval);
+                peladaMatch.timerRunning = false;
+                peladaMatch.hasStarted = false;
+                peladaStatus.isFirstMatch = isFirst;
+                peladaMatch.timeLeft = (isFirst ? peladaConfig.timeFirstMatch : peladaConfig.timeNormalMatch) * 60;
+                peladaMatch.scoreA = 0;
+                peladaMatch.scoreB = 0;
+                savePeladaData();
             };
-
-            const adjustTime = (seconds) => {
-                match.timeLeft = Math.max(0, match.timeLeft + seconds);
-                saveData();
+            
+            const adjustPeladaTime = (seconds) => {
+                peladaMatch.timeLeft = Math.max(0, peladaMatch.timeLeft + seconds);
+                savePeladaData();
             };
-
-            const setTimeZero = () => {
-                match.timeLeft = 0;
-                saveData();
+            
+            const setPeladaTimeZero = () => {
+                peladaMatch.timeLeft = 0;
+                savePeladaData();
             };
-
-            const adjustScore = (team, delta) => {
-                if(team === 'A') match.scoreA = Math.max(0, match.scoreA + delta);
-                else match.scoreB = Math.max(0, match.scoreB + delta);
-                saveData();
+            
+            const adjustPeladaScore = (team, delta) => {
+                if (team === 'A') peladaMatch.scoreA = Math.max(0, peladaMatch.scoreA + delta);
+                else peladaMatch.scoreB = Math.max(0, peladaMatch.scoreB + delta);
+                savePeladaData();
             };
-
-            // --- ENCERRAR PARTIDA (apenas zera o cronômetro) ---
-            const endMatch = () => {
-                if(!confirm("Encerrar partida e zerar o cronômetro?")) return;
-                resetTimer(false);
-                saveData();
-            };
-
-            // --- PRÓXIMO (rotação baseada no placar) ---
-            const nextMatch = () => {
-                // Determinar vencedor pelo placar atual
+            
+            const nextPeladaMatch = () => {
                 let winner = null;
-                if (match.scoreA > match.scoreB) {
+                if (peladaMatch.scoreA > peladaMatch.scoreB) {
                     winner = 'A';
-                } else if (match.scoreB > match.scoreA) {
+                } else if (peladaMatch.scoreB > peladaMatch.scoreA) {
                     winner = 'B';
                 } else {
                     winner = 'DRAW';
                 }
 
-                // Atualizar marcador de último vencedor
                 if (winner === 'DRAW') {
-                    match.lastWinner = null;
+                    peladaMatch.lastWinner = null;
                 } else {
-                    match.lastWinner = winner;
+                    peladaMatch.lastWinner = winner;
                 }
 
-                // Função para substituir jogadores de linha de um time (mantém goleiro)
                 const replaceLinePlayers = (team) => {
-                    // Separar goleiro e jogadores de linha
                     const gk = team.filter(p => p.role === 'GK');
                     const linePlayers = team.filter(p => p.role !== 'GK');
-                    
-                    // Jogadores de linha vão para o final da fila
-                    linePlayers.forEach(p => queue.value.push(p));
-                    
-                    // Pegar 4 novos jogadores de linha do início da fila
-                    const newLinePlayers = queue.value.splice(0, 4);
-                    
-                    // Retornar time com goleiro + novos jogadores
+                    linePlayers.forEach(p => peladaQueue.value.push(p));
+                    const newLinePlayers = peladaQueue.value.splice(0, 4);
                     return [...gk, ...newLinePlayers];
                 };
 
-                // Função para substituir jogadores de linha E goleiro de um time perdedor
                 const replaceLosingTeam = (team) => {
-                    // Separar goleiro e jogadores de linha
                     const currentGk = team.find(p => p.role === 'GK');
                     const linePlayers = team.filter(p => p.role !== 'GK');
+                    linePlayers.forEach(p => peladaQueue.value.push(p));
+                    const newLinePlayers = peladaQueue.value.splice(0, 4);
                     
-                    // Jogadores de linha vão para o final da fila normal
-                    linePlayers.forEach(p => queue.value.push(p));
-                    
-                    // Pegar 4 novos jogadores de linha do início da fila
-                    const newLinePlayers = queue.value.splice(0, 4);
-                    
-                    // Verificar se há goleiro disponível na fila de goleiros
                     let newGk = [];
-                    if (goalkeeperQueue.value.length > 0) {
-                        // Pega o primeiro goleiro da fila de goleiros
-                        const nextGk = goalkeeperQueue.value.shift();
+                    if (peladaGoalkeeperQueue.value.length > 0) {
+                        const nextGk = peladaGoalkeeperQueue.value.shift();
                         newGk = [nextGk];
-                        
-                        // Goleiro atual vai para o final da fila de goleiros
                         if (currentGk) {
-                            goalkeeperQueue.value.push(currentGk);
+                            peladaGoalkeeperQueue.value.push(currentGk);
                         }
                     } else {
-                        // Sem goleiro substituto, mantém o atual
                         newGk = currentGk ? [currentGk] : [];
                     }
                     
-                    // Retornar time com novo goleiro + novos jogadores
                     return [...newGk, ...newLinePlayers];
                 };
 
                 if (winner === 'A') {
-                    // Time A vence: Time B sai (incluindo goleiro), Time A fica
-                    match.teamB = replaceLosingTeam(match.teamB);
+                    peladaMatch.teamB = replaceLosingTeam(peladaMatch.teamB);
                 } else if (winner === 'B') {
-                    // Time B vence: Time A sai (incluindo goleiro), Time B fica
-                    match.teamA = replaceLosingTeam(match.teamA);
+                    peladaMatch.teamA = replaceLosingTeam(peladaMatch.teamA);
                 } else {
-                    // Empate: Ambos os times saem (incluindo goleiros, se houver substitutos)
-                    // Para empate, precisamos verificar quantos goleiros temos disponíveis
-                    const availableGks = goalkeeperQueue.value.length;
-                    
+                    const availableGks = peladaGoalkeeperQueue.value.length;
                     if (availableGks >= 2) {
-                        // Há 2+ goleiros: ambos os times trocam goleiro
-                        match.teamA = replaceLosingTeam(match.teamA);
-                        match.teamB = replaceLosingTeam(match.teamB);
+                        peladaMatch.teamA = replaceLosingTeam(peladaMatch.teamA);
+                        peladaMatch.teamB = replaceLosingTeam(peladaMatch.teamB);
                     } else if (availableGks === 1) {
-                        // Há apenas 1 goleiro: só um time troca (Time A tem prioridade)
-                        match.teamA = replaceLosingTeam(match.teamA);
-                        match.teamB = replaceLinePlayers(match.teamB); // Mantém goleiro do B
+                        peladaMatch.teamA = replaceLosingTeam(peladaMatch.teamA);
+                        peladaMatch.teamB = replaceLinePlayers(peladaMatch.teamB);
                     } else {
-                        // Não há goleiros: ambos mantêm seus goleiros
-                        match.teamA = replaceLinePlayers(match.teamA);
-                        match.teamB = replaceLinePlayers(match.teamB);
+                        peladaMatch.teamA = replaceLinePlayers(peladaMatch.teamA);
+                        peladaMatch.teamB = replaceLinePlayers(peladaMatch.teamB);
                     }
                 }
-
-                // Resetar cronômetro para próxima partida
-                resetTimer(false);
-                saveData();
-            };
-
-            // --- ROTACIONAR (pega próximos jogadores da fila, mantém goleiros) ---
-            const rotateTeams = () => {
-                if(!confirm("Rotacionar times? Os próximos jogadores da fila entrarão em campo.")) return;
-
-                // Separar goleiros dos times atuais (eles ficam)
-                const gkTeamA = match.teamA.filter(p => p.role === 'GK');
-                const gkTeamB = match.teamB.filter(p => p.role === 'GK');
                 
-                // Jogadores de linha dos times atuais vão para a fila
-                const linePlayersTeamA = match.teamA.filter(p => p.role !== 'GK');
-                const linePlayersTeamB = match.teamB.filter(p => p.role !== 'GK');
-                linePlayersTeamA.forEach(p => queue.value.push(p));
-                linePlayersTeamB.forEach(p => queue.value.push(p));
-
-                // Sempre 4 jogadores de linha por time (total 5 com goleiro)
-                const linePlayersNeeded = 4;
-
-                // Pegar os primeiros 4 jogadores da fila para o Time A
-                const newLinePlayersA = queue.value.splice(0, linePlayersNeeded);
+                resetPeladaTimer(false);
+                savePeladaData();
+            };
+            
+            const rotatePeladaTeams = () => {
+                if (!confirm("Rotacionar times? Os próximos jogadores da fila entrarão em campo.")) return;
                 
-                // Pegar os próximos 4 jogadores da fila para o Time B (5º, 6º, 7º, 8º)
-                const newLinePlayersB = queue.value.splice(0, linePlayersNeeded);
-
-                // Montar os times: goleiro + novos jogadores de linha
-                match.teamA = [...gkTeamA, ...newLinePlayersA];
-                match.teamB = [...gkTeamB, ...newLinePlayersB];
-
-                resetTimer(false);
-                saveData();
-            };
-
-            // --- LIMPAR TÁBUA (remove todos os jogadores dos times) ---
-            const clearTeams = () => {
-                if(!confirm("Limpar tábua? Todos os jogadores serão removidos dos times.")) return;
-
-                // Mover jogadores dos times para as filas corretas
-                match.teamA.forEach(p => {
-                    if (p.role === 'GK') goalkeeperQueue.value.push(p);
-                    else queue.value.push(p);
-                });
-                match.teamB.forEach(p => {
-                    if (p.role === 'GK') goalkeeperQueue.value.push(p);
-                    else queue.value.push(p);
-                });
-
-                match.teamA = [];
-                match.teamB = [];
-
-                saveData();
-            };
-
-            // --- SORTEAR TIMES (aleatório) ---
-            const shuffleTeams = () => {
-                if(!confirm("Sortear times? Os times serão formados aleatoriamente.")) return;
-
-                // Mover jogadores atuais dos times para as filas corretas
-                match.teamA.forEach(p => {
-                    if (p.role === 'GK') goalkeeperQueue.value.push(p);
-                    else queue.value.push(p);
-                });
-                match.teamB.forEach(p => {
-                    if (p.role === 'GK') goalkeeperQueue.value.push(p);
-                    else queue.value.push(p);
-                });
-                match.teamA = [];
-                match.teamB = [];
-
-                // Goleiros vêm da fila de goleiros, jogadores de linha da fila normal
-                const allGKs = [...goalkeeperQueue.value];
-                const allLines = [...queue.value];
-
-                // Função para embaralhar array (Fisher-Yates)
-                const shuffle = (arr) => {
-                    const shuffled = [...arr];
-                    for (let i = shuffled.length - 1; i > 0; i--) {
-                        const j = Math.floor(Math.random() * (i + 1));
-                        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-                    }
-                    return shuffled;
-                };
-
-                // Embaralhar goleiros e jogadores de linha
-                const shuffledGKs = shuffle(allGKs);
-                const shuffledLines = shuffle(allLines);
-
-                // Pegar 1 goleiro para cada time (se disponível)
-                const gkForTeamA = shuffledGKs.length > 0 ? [shuffledGKs.shift()] : [];
-                const gkForTeamB = shuffledGKs.length > 0 ? [shuffledGKs.shift()] : [];
-
-                // Sempre 4 jogadores de linha por time (total 5 com goleiro)
+                const gkTeamA = peladaMatch.teamA.filter(p => p.role === 'GK');
+                const gkTeamB = peladaMatch.teamB.filter(p => p.role === 'GK');
+                
+                const linePlayersTeamA = peladaMatch.teamA.filter(p => p.role !== 'GK');
+                const linePlayersTeamB = peladaMatch.teamB.filter(p => p.role !== 'GK');
+                linePlayersTeamA.forEach(p => peladaQueue.value.push(p));
+                linePlayersTeamB.forEach(p => peladaQueue.value.push(p));
+                
                 const linePlayersNeeded = 4;
-
-                // Pegar jogadores de linha para cada time
-                const linesForTeamA = shuffledLines.splice(0, linePlayersNeeded);
-                const linesForTeamB = shuffledLines.splice(0, linePlayersNeeded);
-
-                // Montar os times
-                match.teamA = [...gkForTeamA, ...linesForTeamA];
-                match.teamB = [...gkForTeamB, ...linesForTeamB];
-
-                // Recompor a fila de goleiros com os restantes
-                goalkeeperQueue.value = [...shuffledGKs];
-                // Recompor a fila com os jogadores de linha restantes
-                queue.value = [...shuffledLines];
-
-                resetTimer(true);
-                saveData();
+                const newLinePlayersA = peladaQueue.value.splice(0, linePlayersNeeded);
+                const newLinePlayersB = peladaQueue.value.splice(0, linePlayersNeeded);
+                
+                peladaMatch.teamA = [...gkTeamA, ...newLinePlayersA];
+                peladaMatch.teamB = [...gkTeamB, ...newLinePlayersB];
+                
+                resetPeladaTimer(false);
+                savePeladaData();
             };
-
-            // Drag & Drop
-            const onDragStart = (evt, player, listName) => {
-                draggedItem = player;
-                sourceList = listName;
+            
+            const clearPeladaTeams = () => {
+                if (!confirm("Limpar tábua? Todos os jogadores serão removidos dos times.")) return;
+                
+                peladaMatch.teamA.forEach(p => {
+                    if (p.role === 'GK') peladaGoalkeeperQueue.value.push(p);
+                    else peladaQueue.value.push(p);
+                });
+                peladaMatch.teamB.forEach(p => {
+                    if (p.role === 'GK') peladaGoalkeeperQueue.value.push(p);
+                    else peladaQueue.value.push(p);
+                });
+                
+                peladaMatch.teamA = [];
+                peladaMatch.teamB = [];
+                savePeladaData();
+            };
+            
+            const onPeladaDragStart = (evt, player, listName) => {
+                peladaDraggedItem = player;
+                peladaSourceList = listName;
                 evt.dataTransfer.effectAllowed = 'move';
             };
 
-            const onDrop = (evt, targetList) => {
-                if (!draggedItem || sourceList === targetList) return;
+            const onPeladaDrop = (evt, targetList) => {
+                if (!peladaDraggedItem || peladaSourceList === targetList) return;
 
-                // Se vem do cadastro (register), exibe avisos e adiciona à fila
-                if (sourceList === 'register') {
+                if (peladaSourceList === 'register') {
                     if (targetList === 'queue') {
                         let warnings = [];
-                        if (!draggedItem.paid) {
-                            warnings.push("⚠️ Este jogador ainda NÃO PAGOU!");
+                        if (!peladaDraggedItem.paid) warnings.push("⚠️ Este jogador ainda NÃO PAGOU!");
+                        if (!peladaDraggedItem.arrived) warnings.push("⚠️ Este jogador ainda NÃO CHEGOU!");
+                        if (warnings.length > 0) alert(warnings.join("\n"));
+                        
+                        if (!peladaQueue.value.find(q => q.id === peladaDraggedItem.id)) {
+                            peladaQueue.value.push({ ...peladaDraggedItem });
                         }
-                        if (!draggedItem.arrived) {
-                            warnings.push("⚠️ Este jogador ainda NÃO CHEGOU!");
-                        }
-                        if (warnings.length > 0) {
-                            alert(warnings.join("\n"));
-                        }
-                        // Adiciona à fila mesmo assim
-                        if (!queue.value.find(q => q.id === draggedItem.id)) {
-                            queue.value.push({ ...draggedItem });
-                        }
-                        // Remove do cadastro
-                        allPlayers.value = allPlayers.value.filter(p => p.id !== draggedItem.id);
+                        peladaAllPlayers.value = peladaAllPlayers.value.filter(p => p.id !== peladaDraggedItem.id);
                     }
-                    draggedItem = null;
-                    sourceList = null;
-                    saveData();
+                    peladaDraggedItem = null;
+                    peladaSourceList = null;
+                    savePeladaData();
                     return;
                 }
 
                 const removeFromList = (listName) => {
-                    if (listName === 'teamA') match.teamA = match.teamA.filter(p => p.id !== draggedItem.id);
-                    else if (listName === 'teamB') match.teamB = match.teamB.filter(p => p.id !== draggedItem.id);
-                    else if (listName === 'queue') queue.value = queue.value.filter(p => p.id !== draggedItem.id);
-                    else if (listName === 'goalkeeperQueue') goalkeeperQueue.value = goalkeeperQueue.value.filter(p => p.id !== draggedItem.id);
+                    if (listName === 'teamA') peladaMatch.teamA = peladaMatch.teamA.filter(p => p.id !== peladaDraggedItem.id);
+                    else if (listName === 'teamB') peladaMatch.teamB = peladaMatch.teamB.filter(p => p.id !== peladaDraggedItem.id);
+                    else if (listName === 'queue') peladaQueue.value = peladaQueue.value.filter(p => p.id !== peladaDraggedItem.id);
+                    else if (listName === 'goalkeeperQueue') peladaGoalkeeperQueue.value = peladaGoalkeeperQueue.value.filter(p => p.id !== peladaDraggedItem.id);
                 };
-                removeFromList(sourceList);
-
-                if (targetList === 'queue') queue.value.push(draggedItem); 
-                else if (targetList === 'teamA') match.teamA.push(draggedItem);
-                else if (targetList === 'teamB') match.teamB.push(draggedItem);
-                else if (targetList === 'goalkeeperQueue') goalkeeperQueue.value.push(draggedItem);
-
-                draggedItem = null;
-                saveData();
-            };
-
-            const onDropOnQueueCard = (targetPlayerId) => {
-                if (!draggedItem) return;
+                removeFromList(peladaSourceList);
                 
-                if (sourceList === 'queue') {
-                    const fromIndex = queue.value.findIndex(p => p.id === draggedItem.id);
-                    const toIndex = queue.value.findIndex(p => p.id === targetPlayerId);
+                if (targetList === 'queue') peladaQueue.value.push(peladaDraggedItem);
+                else if (targetList === 'teamA') peladaMatch.teamA.push(peladaDraggedItem);
+                else if (targetList === 'teamB') peladaMatch.teamB.push(peladaDraggedItem);
+                else if (targetList === 'goalkeeperQueue') peladaGoalkeeperQueue.value.push(peladaDraggedItem);
+                
+                peladaDraggedItem = null;
+                savePeladaData();
+            };
+            
+            const onDropOnPeladaQueueCard = (targetPlayerId) => {
+                if (!peladaDraggedItem) return;
+                
+                if (peladaSourceList === 'queue') {
+                    const fromIndex = peladaQueue.value.findIndex(p => p.id === peladaDraggedItem.id);
+                    const toIndex = peladaQueue.value.findIndex(p => p.id === targetPlayerId);
                     
                     if (fromIndex > -1 && toIndex > -1) {
-                        const [movedPlayer] = queue.value.splice(fromIndex, 1);
-                        queue.value.splice(toIndex, 0, movedPlayer);
+                        const [movedPlayer] = peladaQueue.value.splice(fromIndex, 1);
+                        peladaQueue.value.splice(toIndex, 0, movedPlayer);
                     }
                 } else {
-                    if (sourceList === 'teamA') match.teamA = match.teamA.filter(p => p.id !== draggedItem.id);
-                    else if (sourceList === 'teamB') match.teamB = match.teamB.filter(p => p.id !== draggedItem.id);
+                    if (peladaSourceList === 'teamA') peladaMatch.teamA = peladaMatch.teamA.filter(p => p.id !== peladaDraggedItem.id);
+                    else if (peladaSourceList === 'teamB') peladaMatch.teamB = peladaMatch.teamB.filter(p => p.id !== peladaDraggedItem.id);
                     
-                    const toIndex = queue.value.findIndex(p => p.id === targetPlayerId);
-                    if(toIndex > -1) {
-                        queue.value.splice(toIndex, 0, draggedItem);
+                    const toIndex = peladaQueue.value.findIndex(p => p.id === targetPlayerId);
+                    if (toIndex > -1) {
+                        peladaQueue.value.splice(toIndex, 0, peladaDraggedItem);
                     } else {
-                        queue.value.push(draggedItem);
+                        peladaQueue.value.push(peladaDraggedItem);
                     }
                 }
                 
-                draggedItem = null;
-                sourceList = null;
-                saveData();
+                peladaDraggedItem = null;
+                peladaSourceList = null;
+                savePeladaData();
             };
-
-            onMounted(() => {
-                loadData();
+            
+            // ==================== LIFECYCLE ====================
+            onMounted(async () => {
+                // Verificar sessão existente
+                const { data: { session: existingSession } } = await supabaseClient.auth.getSession();
+                if (existingSession) {
+                    session.value = existingSession;
+                    await bootstrapProfile(existingSession.user);
+                    loadGroups();
+                }
+                
+                // Listener de mudança de auth
+                supabaseClient.auth.onAuthStateChange(async (event, newSession) => {
+                    session.value = newSession;
+                    if (newSession) {
+                        await bootstrapProfile(newSession.user);
+                        loadGroups();
+                    } else {
+                        userProfile.value = null;
+                        currentView.value = 'grupos';
+                    }
+                });
             });
 
             return {
-                config, status, ui, input, allPlayers, match, queue, goalkeeperQueue,
-                formattedTime, paidCount, arrivedCount,
-                addPlayers, resetAll, generateInitialTeams, markAllPaid, markAllArrivedAndQueue, onArrivedChange, onPaidChange, removeFromQueue, movePlayerUp, movePlayerDown,
-                removeFromGoalkeeperQueue, moveGoalkeeperUp, moveGoalkeeperDown, onDropOnGoalkeeperCard,
-                toggleTimer, resetTimer, adjustTime, setTimeZero, adjustScore, endMatch, nextMatch, rotateTeams, clearTeams, shuffleTeams,
-                onDragStart, onDragStartFromRegister, onDrop, onDropOnRegister, onDropOnQueueCard, saveData
+                // Auth
+                session, userProfile, authMode, authForm, authError, authSuccess, authLoading,
+                handleAuth, handleLogout,
+                
+                // Navigation
+                currentView, sidebarExpanded, navigateTo,
+                
+                // Groups
+                loadingGroups, pendingInvites, adminGroups, memberGroups,
+                showCreateGroupModal, createGroupForm, createGroupError, creatingGroup,
+                openCreateGroupModal, createGroup, acceptInvite, declineInvite,
+                
+                // Members Modal
+                showMembersModal, selectedGroupForMembers, loadingMembers,
+                pendingMembers, activeMembers, inviteEmail, inviteAsAdmin,
+                invitingPlayer, inviteError, inviteSuccess,
+                openMembersModal, invitePlayer, cancelInvite,
+                promoteToAdmin, demoteFromAdmin, removeMember,
+                
+                // Profile
+                profileForm, profileError, profileSuccess, savingProfile, saveProfile,
+                
+                // Pelada
+                currentGroupId, currentGroupName,
+                peladaConfig, peladaStatus, peladaUI, peladaInput,
+                peladaAllPlayers, peladaMatch, peladaQueue, peladaGoalkeeperQueue,
+                peladaFormattedTime, peladaPaidCount, peladaArrivedCount,
+                openPelada, resetPelada,
+                addPeladaPlayers, markAllPeladaPaid, markAllPeladaArrivedAndQueue,
+                onPeladaArrivedChange, onPeladaPaidChange,
+                onPeladaDragStartFromRegister, onDropOnPeladaRegister,
+                removeFromPeladaQueue, movePeladaPlayerUp, movePeladaPlayerDown,
+                removeFromPeladaGoalkeeperQueue, movePeladaGoalkeeperUp, movePeladaGoalkeeperDown,
+                onDropOnPeladaGoalkeeperCard,
+                generatePeladaInitialTeams, togglePeladaTimer, resetPeladaTimer,
+                adjustPeladaTime, setPeladaTimeZero, adjustPeladaScore,
+                nextPeladaMatch, rotatePeladaTeams, clearPeladaTeams,
+                onPeladaDragStart, onPeladaDrop, onDropOnPeladaQueueCard,
+                savePeladaData
             };
         }
     });
 
-    app.component('player-card', {
+    // Componente Player Card para Pelada
+    app.component('pelada-player-card', {
         props: ['player', 'index', 'mini', 'showRemove', 'showReorder', 'isFirst', 'isLast'],
-        template: '#player-card-template',
+        template: '#pelada-player-card-template',
         data() { return { isDragOver: false } },
         methods: {
             onDragOver() { this.isDragOver = true; },
