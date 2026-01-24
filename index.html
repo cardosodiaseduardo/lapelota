@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Pelada PRO - v1.10</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; overflow: hidden; } /* Remove scroll da página */
+        .draggable-item { cursor: grab; touch-action: none; }
+        .draggable-item:active { cursor: grabbing; }
+        .font-mono-nums { font-variant-numeric: tabular-nums; }
+        
+        /* Scrollbar fina e escura */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+        
+        .drag-over-item { border-top: 2px solid #34d399 !important; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 h-screen w-screen flex flex-col text-xs overflow-hidden">
+
+<div id="app" class="flex flex-col h-full w-full p-2 gap-2 max-w-[1600px] mx-auto">
+    
+    <header class="bg-gray-900 p-2 rounded-lg border border-gray-800 flex-shrink-0 flex justify-between items-center gap-2">
+        <div>
+            <h1 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                <i class="ph ph-soccer-ball"></i> Gestão de Pelada
+            </h1>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-1">
+                <span class="text-[9px] text-gray-500 uppercase font-bold">Tempo:</span>
+                <span class="font-bold text-emerald-400 text-[10px]">{{ status.isFirstMatch ? '10 min' : '7 min' }}</span>
+            </div>
+
+            <button @click="resetAll" class="text-red-400 hover:text-red-300 text-[10px] uppercase font-bold px-2 border-l border-gray-700">
+                Resetar
+            </button>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-2 flex-1 min-h-0">
+        
+        <section class="lg:col-span-2 flex flex-col bg-gray-900 rounded-lg border border-gray-800 h-full overflow-hidden">
+            <div class="flex-shrink-0 border-b border-gray-800">
+                <div @click="ui.showRegister = !ui.showRegister" class="p-2 bg-gray-800 cursor-pointer flex justify-between items-center hover:bg-gray-750 transition">
+                    <h2 class="font-bold text-gray-300 flex items-center gap-1 text-[11px]"><i class="ph ph-users"></i> Cadastro</h2>
+                    <i class="ph text-xs" :class="ui.showRegister ? 'ph-caret-up' : 'ph-caret-down'"></i>
+                </div>
+                
+                <div v-show="ui.showRegister" class="p-2 space-y-1.5 bg-gray-900">
+                    <textarea v-model="input.goalkeepers" placeholder="Goleiros..." class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-[10px] h-12 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"></textarea>
+                    <textarea v-model="input.lines" placeholder="Jogadores..." class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-[10px] h-16 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"></textarea>
+                    <button @click="addPlayers" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 rounded text-[10px] uppercase tracking-wide transition">Adicionar</button>
+                </div>
+            </div>
+
+            <div class="px-2 py-1.5 bg-gray-800 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+                <span class="text-[9px] uppercase font-bold text-gray-500">Total: {{allPlayers.length}}</span>
+                <div class="flex items-center gap-2">
+                    <button @click="markAllPaid" class="text-emerald-500 hover:text-emerald-400 text-[9px] flex items-center gap-1 font-bold" title="Marcar Todos como Pagos">
+                        💰 Todos Pagos
+                    </button>
+                    <button @click="markAllArrivedAndQueue" class="text-cyan-500 hover:text-cyan-400 text-[9px] flex items-center gap-1 font-bold" title="Enviar Todos Pagos para Fila">
+                        ✅ Todos Chegaram
+                    </button>
+                </div>
+            </div>
+
+            <div class="px-1.5 py-1 bg-gray-850 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+                <span class="text-[8px] uppercase font-bold text-gray-500">Jogador</span>
+                <div class="flex items-center gap-1">
+                    <span class="text-[8px] uppercase font-bold text-emerald-500 w-6 text-center" :title="paidCount + ' pagos'">💰 <span class="text-[7px] text-emerald-400">{{paidCount}}</span></span>
+                    <span class="text-[8px] uppercase font-bold text-cyan-500 w-6 text-center" :title="arrivedCount + ' chegaram'">✅ <span class="text-[7px] text-cyan-400">{{arrivedCount}}</span></span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-1.5 bg-gray-900" @dragover.prevent @drop="onDropOnRegister($event)">
+                <ul class="space-y-1">
+                    <li v-for="(p, idx) in allPlayers" :key="p.id" 
+                        class="flex items-center justify-between bg-gray-800 p-1 rounded border border-gray-700 group hover:border-gray-600 transition draggable-item"
+                        draggable="true"
+                        @dragstart="onDragStartFromRegister($event, p)">
+                        <div class="flex items-center gap-1.5 overflow-hidden">
+                            <span class="text-[9px] text-gray-500 font-mono w-3 text-right">{{ idx + 1 }}</span>
+                            <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="p.role === 'GK' ? 'bg-yellow-500' : 'bg-blue-500'"></span>
+                            <span class="text-[10px] font-medium truncate text-gray-300" :class="{'opacity-40': !p.paid || !p.arrived}">{{ p.name }}</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <div class="w-6 flex justify-center">
+                                <input type="checkbox" v-model="p.paid" @change="onPaidChange(p)" class="w-3 h-3 accent-emerald-500 cursor-pointer rounded-sm" title="Pago">
+                            </div>
+                            <div class="w-6 flex justify-center">
+                                <input type="checkbox" v-model="p.arrived" @change="onArrivedChange(p)" class="w-3 h-3 accent-cyan-500 cursor-pointer rounded-sm" title="Chegou">
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            
+        </section>
+
+        <section class="lg:col-span-7 flex flex-col gap-2 h-full min-h-0">
+            
+            <div class="bg-gray-900 rounded-lg border border-gray-800 shadow relative flex-shrink-0">
+                <div class="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-yellow-500 via-gray-500 to-blue-500 opacity-60"></div>
+                
+                <div class="p-2 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex flex-col items-center">
+                            <span class="text-[9px] font-bold text-yellow-400 uppercase">Time Amarelo</span>
+                            <div class="flex items-center gap-1 bg-black/30 rounded p-0.5 border border-yellow-600/30">
+                                <button @click="adjustScore('A', -1)" class="w-5 h-5 hover:bg-gray-700 rounded text-gray-400 flex items-center justify-center"><i class="ph ph-minus"></i></button>
+                                <span class="text-lg font-mono-nums font-bold w-6 text-center text-yellow-400">{{ match.scoreA }}</span>
+                                <button @click="adjustScore('A', 1)" class="w-5 h-5 hover:bg-yellow-900/50 rounded text-yellow-400 flex items-center justify-center"><i class="ph ph-plus"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center">
+                        <div class="text-3xl font-mono-nums font-bold tracking-widest leading-none" :class="{'text-red-500 animate-pulse': match.timeLeft < 60 && match.timeLeft > 0, 'text-white': match.timeLeft >= 60}">
+                            {{ formattedTime }}
+                        </div>
+                        
+                        <!-- Controles principais -->
+                        <div class="flex gap-2 mt-1">
+                            <button @click="toggleTimer" class="px-3 py-0.5 rounded-full text-white text-[10px] font-bold uppercase tracking-wider shadow border border-white/10 transition hover:scale-105" :class="match.timerRunning ? 'bg-yellow-600' : 'bg-emerald-600'">
+                                {{ match.timerRunning ? 'Pausar' : (match.hasStarted ? 'Retomar' : 'Iniciar') }}
+                            </button>
+                            <button @click="resetTimer(status.isFirstMatch)" class="w-6 h-6 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 border border-gray-700" title="Reiniciar Tempo">
+                                <i class="ph ph-arrow-counter-clockwise"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Controles de ajuste de tempo -->
+                        <div class="flex gap-1 mt-1.5">
+                            <button @click="setTimeZero" class="px-1.5 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-[9px] font-bold border border-gray-600 transition" title="Zerar cronômetro">
+                                0s
+                            </button>
+                            <button @click="adjustTime(-60)" class="px-1.5 py-0.5 rounded bg-red-900/50 hover:bg-red-800/60 text-red-400 text-[9px] font-bold border border-red-700/50 transition" title="Remover 1 minuto">
+                                -1min
+                            </button>
+                            <button @click="adjustTime(-30)" class="px-1.5 py-0.5 rounded bg-red-900/30 hover:bg-red-800/40 text-red-400 text-[9px] font-bold border border-red-700/30 transition" title="Remover 30 segundos">
+                                -30s
+                            </button>
+                            <button @click="adjustTime(-10)" class="px-1.5 py-0.5 rounded bg-red-900/20 hover:bg-red-800/30 text-red-400 text-[9px] font-bold border border-red-700/20 transition" title="Remover 10 segundos">
+                                -10s
+                            </button>
+                            <button @click="adjustTime(10)" class="px-1.5 py-0.5 rounded bg-emerald-900/20 hover:bg-emerald-800/30 text-emerald-400 text-[9px] font-bold border border-emerald-700/20 transition" title="Adicionar 10 segundos">
+                                +10s
+                            </button>
+                            <button @click="adjustTime(30)" class="px-1.5 py-0.5 rounded bg-emerald-900/30 hover:bg-emerald-800/40 text-emerald-400 text-[9px] font-bold border border-emerald-700/30 transition" title="Adicionar 30 segundos">
+                                +30s
+                            </button>
+                            <button @click="adjustTime(60)" class="px-1.5 py-0.5 rounded bg-emerald-900/50 hover:bg-emerald-800/60 text-emerald-400 text-[9px] font-bold border border-emerald-700/50 transition" title="Adicionar 1 minuto">
+                                +1min
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                         <div class="flex flex-col items-center">
+                            <span class="text-[9px] font-bold text-blue-400 uppercase">Time Azul</span>
+                            <div class="flex items-center gap-1 bg-black/30 rounded p-0.5 border border-blue-600/30">
+                                <button @click="adjustScore('B', -1)" class="w-5 h-5 hover:bg-gray-700 rounded text-gray-400 flex items-center justify-center"><i class="ph ph-minus"></i></button>
+                                <span class="text-lg font-mono-nums font-bold w-6 text-center text-blue-400">{{ match.scoreB }}</span>
+                                <button @click="adjustScore('B', 1)" class="w-5 h-5 hover:bg-blue-900/50 rounded text-blue-400 flex items-center justify-center"><i class="ph ph-plus"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 flex-1 min-h-0">
+                <div class="bg-yellow-950/30 border border-yellow-500/30 rounded-lg flex flex-col shadow-inner overflow-hidden" 
+                     @dragover.prevent @drop="onDrop($event, 'teamA')">
+                    <div class="bg-yellow-900/30 p-1 border-b border-yellow-500/20 text-center flex-shrink-0 flex items-center justify-center gap-1.5">
+                        <i v-if="match.lastWinner === 'A'" class="ph ph-crown text-yellow-300 text-sm" title="Vencedor da última partida"></i>
+                        <span class="text-[9px] font-bold text-yellow-400 uppercase tracking-widest">TIME AMARELO</span>
+                        <i v-if="match.lastWinner === 'A'" class="ph ph-crown text-yellow-300 text-sm" title="Vencedor da última partida"></i>
+                    </div>
+                    <div class="p-1.5 flex-1 overflow-y-auto space-y-1">
+                        <player-card v-for="p in match.teamA" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamA')"></player-card>
+                        <div v-if="match.teamA.length === 0" class="h-full flex items-center justify-center opacity-20 text-[10px] italic border-2 border-dashed border-gray-700 m-2 rounded">
+                            Arrastar Jogadores
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-950/30 border border-blue-500/30 rounded-lg flex flex-col shadow-inner overflow-hidden"
+                     @dragover.prevent @drop="onDrop($event, 'teamB')">
+                    <div class="bg-blue-900/30 p-1 border-b border-blue-500/20 text-center flex-shrink-0 flex items-center justify-center gap-1.5">
+                        <i v-if="match.lastWinner === 'B'" class="ph ph-crown text-blue-300 text-sm" title="Vencedor da última partida"></i>
+                        <span class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">TIME AZUL</span>
+                        <i v-if="match.lastWinner === 'B'" class="ph ph-crown text-blue-300 text-sm" title="Vencedor da última partida"></i>
+                    </div>
+                    <div class="p-1.5 flex-1 overflow-y-auto space-y-1">
+                        <player-card v-for="p in match.teamB" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamB')"></player-card>
+                         <div v-if="match.teamB.length === 0" class="h-full flex items-center justify-center opacity-20 text-[10px] italic border-2 border-dashed border-gray-700 m-2 rounded">
+                            Arrastar Jogadores
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-900 p-2 rounded-lg border border-gray-800 flex-shrink-0">
+                <div class="flex gap-2">
+                    <button @click="generateInitialTeams" :disabled="status.teamsGenerated" class="flex-1 bg-purple-700 hover:bg-purple-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
+                        <i class="ph ph-shuffle text-sm"></i> Sortear Times
+                    </button>
+                    <button @click="clearTeams" class="flex-1 bg-red-700 hover:bg-red-600 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
+                        <i class="ph ph-trash text-sm"></i> Limpar Tábua
+                    </button>
+                    <button @click="rotateTeams" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
+                        <i class="ph ph-arrows-clockwise text-sm"></i> Rotacionar
+                    </button>
+                    <button @click="nextMatch" class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
+                        <i class="ph ph-caret-right text-sm"></i> Próximo
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="lg:col-span-3 flex flex-col gap-2 h-full min-h-0 overflow-hidden">
+            
+            <div class="bg-gray-900 rounded-lg border border-gray-800 flex flex-col overflow-hidden flex-1 min-h-0">
+                <div class="p-1.5 bg-gray-800 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+                    <h3 class="text-[10px] font-bold text-yellow-500 uppercase tracking-wider">Fila de Espera</h3>
+                    <span class="bg-gray-950 text-[9px] px-1.5 rounded text-gray-400 border border-gray-700">{{ queue.length }}</span>
+                </div>
+                <div class="flex-1 p-1.5 overflow-y-auto bg-black/20" @dragover.prevent @drop="onDrop($event, 'queue')">
+                    <div class="space-y-0.5"> <player-card 
+                            v-for="(p, index) in queue" 
+                            :key="p.id" 
+                            :player="p" 
+                            :index="index + 1" 
+                            :mini="true" 
+                            :show-remove="true"
+                            :show-reorder="true"
+                            :is-first="index === 0"
+                            :is-last="index === queue.length - 1"
+                            @dragstart="onDragStart($event, p, 'queue')"
+                            @drop-on-card="onDropOnQueueCard"
+                            @remove-click="removeFromQueue"
+                            @move-up="movePlayerUp"
+                            @move-down="movePlayerDown"
+                        ></player-card>
+                        <div v-if="queue.length === 0" class="text-center text-gray-600 text-[10px] py-10 italic">
+                            Ninguém na espera
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Box exclusivo para Goleiros -->
+            <div class="bg-gray-900 rounded-lg border border-yellow-600/40 flex flex-col overflow-hidden flex-shrink-0" style="max-height: 35%;">
+                <div class="p-1.5 bg-yellow-900/30 border-b border-yellow-600/30 flex justify-between items-center flex-shrink-0">
+                    <h3 class="text-[10px] font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-1">
+                        <i class="ph ph-hand-fist"></i> Goleiros (GK's)
+                    </h3>
+                    <span class="bg-gray-950 text-[9px] px-1.5 rounded text-yellow-400 border border-yellow-600/50">{{ goalkeeperQueue.length }}</span>
+                </div>
+                <div class="flex-1 p-1.5 overflow-y-auto bg-yellow-950/10" @dragover.prevent @drop="onDrop($event, 'goalkeeperQueue')">
+                    <div class="space-y-0.5">
+                        <player-card 
+                            v-for="(p, index) in goalkeeperQueue" 
+                            :key="p.id" 
+                            :player="p" 
+                            :index="index + 1" 
+                            :mini="true" 
+                            :show-remove="true"
+                            :show-reorder="true"
+                            :is-first="index === 0"
+                            :is-last="index === goalkeeperQueue.length - 1"
+                            @dragstart="onDragStart($event, p, 'goalkeeperQueue')"
+                            @drop-on-card="onDropOnGoalkeeperCard"
+                            @remove-click="removeFromGoalkeeperQueue"
+                            @move-up="moveGoalkeeperUp"
+                            @move-down="moveGoalkeeperDown"
+                        ></player-card>
+                        <div v-if="goalkeeperQueue.length === 0" class="text-center text-gray-600 text-[10px] py-6 italic">
+                            Nenhum goleiro na espera
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </div>
+
+</div>
+
+<script type="text/x-template" id="player-card-template">
+    <div 
+        class="draggable-item bg-gray-800 hover:bg-gray-700 rounded flex justify-between items-center shadow-sm border-l-[3px] select-none transition group relative"
+        :class="[
+            player.role === 'GK' ? 'border-yellow-600' : 'border-blue-600',
+            mini ? 'p-1 h-6' : 'p-1.5 mb-1',
+            isDragOver ? 'drag-over-item' : ''
+        ]"
+        draggable="true"
+        @dragover.prevent="onDragOver"
+        @dragleave="isDragOver = false"
+        @drop.stop="onDrop"
+    >
+        <div class="flex items-center gap-1.5 overflow-hidden w-full">
+            <span v-if="index" class="text-[9px] font-mono bg-gray-900 w-3.5 h-3.5 flex items-center justify-center rounded text-gray-400 flex-shrink-0 leading-none">{{ index }}</span>
+            <div class="flex flex-col truncate w-full justify-center">
+                <span class="font-bold text-gray-300 truncate leading-none" :class="mini ? 'text-[9px]' : 'text-[11px]'">{{ player.name }}</span>
+                <span v-if="!mini && player.role === 'GK'" class="text-[7px] text-yellow-500 uppercase font-bold leading-none mt-[1px]">Goleiro</span>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-0.5">
+            <!-- Setas de reordenação (aparecem no hover) -->
+            <button v-if="showReorder && !isFirst" @click.stop="$emit('move-up', player.id)" class="opacity-0 group-hover:opacity-100 text-blue-400 hover:text-blue-300 p-0.5 rounded hover:bg-gray-900 transition" title="Mover para cima">
+                <i class="ph ph-caret-up text-[10px]"></i>
+            </button>
+            <button v-if="showReorder && !isLast" @click.stop="$emit('move-down', player.id)" class="opacity-0 group-hover:opacity-100 text-blue-400 hover:text-blue-300 p-0.5 rounded hover:bg-gray-900 transition" title="Mover para baixo">
+                <i class="ph ph-caret-down text-[10px]"></i>
+            </button>
+            
+            <span v-if="player.matchesPlayed > 0" class="text-[8px] font-bold bg-cyan-600 text-white px-1 py-0.5 rounded-full leading-none" :title="player.matchesPlayed + ' partida(s)'">{{ player.matchesPlayed }}</span>
+            <span v-if="mini && player.role === 'GK'" class="text-[7px] text-yellow-500 font-bold px-1">GK</span>
+            <i v-if="!mini" class="ph ph-dots-six-vertical text-gray-600 text-[10px] group-hover:text-gray-400 ml-1"></i>
+            <button v-if="showRemove" @click.stop="$emit('remove-click', player.id)" class="ml-1 text-red-500 hover:text-red-300 p-0.5 rounded hover:bg-gray-900 transition" title="Remover">
+                <i class="ph ph-x text-[9px]"></i>
+            </button>
+        </div>
+    </div>
+</script>
+
+<script>
+    const { createApp, reactive, ref, computed, onMounted } = Vue;
+
+    const app = createApp({
+        setup() {
+            // --- ESTADO ---
+            const config = reactive({
+                playersPerTeam: 5, 
+                timeFirstMatch: 10, 
+                timeNormalMatch: 7
+            });
+
+            const status = reactive({
+                isFirstMatch: true,
+                teamsGenerated: false,
+                lastUpdate: Date.now()
+            });
+
+            const ui = reactive({ showRegister: true });
+            const input = reactive({ goalkeepers: '', lines: '' });
+            
+            const allPlayers = ref([]); 
+            const match = reactive({ teamA: [], teamB: [], scoreA: 0, scoreB: 0, timeLeft: 600, timerRunning: false, hasStarted: false, lastWinner: null });
+            const queue = ref([]);
+            const goalkeeperQueue = ref([]);
+
+            let timerInterval = null;
+            let draggedItem = null;
+            let sourceList = null;
+
+            // --- COMPUTEDS ---
+            const formattedTime = computed(() => {
+                const m = Math.floor(match.timeLeft / 60).toString().padStart(2, '0');
+                const s = (match.timeLeft % 60).toString().padStart(2, '0');
+                return `${m}:${s}`;
+            });
+
+            const paidCount = computed(() => allPlayers.value.filter(p => p.paid).length);
+            const arrivedCount = computed(() => allPlayers.value.filter(p => p.arrived).length);
+
+            // --- PERSISTÊNCIA ---
+            const saveData = () => {
+                const data = {
+                    config, status, allPlayers: allPlayers.value, 
+                    match, queue: queue.value, goalkeeperQueue: goalkeeperQueue.value,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('futebolAppData', JSON.stringify(data));
+            };
+
+            const loadData = () => {
+                const saved = localStorage.getItem('futebolAppData');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
+                        Object.assign(config, data.config);
+                        Object.assign(status, data.status);
+                        Object.assign(match, data.match);
+                        
+                        // Garantir que todos os jogadores tenham matchesPlayed e arrived
+                        const ensurePlayerProps = (players) => {
+                            return players.map(p => ({ ...p, matchesPlayed: p.matchesPlayed || 0, arrived: p.arrived || false }));
+                        };
+                        const ensureMatchesPlayed = ensurePlayerProps;
+                        
+                        allPlayers.value = ensureMatchesPlayed(data.allPlayers || []);
+                        match.teamA = ensureMatchesPlayed(match.teamA || []);
+                        match.teamB = ensureMatchesPlayed(match.teamB || []);
+                        
+                        // Migrar dados antigos: mover nextTeams para queue
+                        let migratedQueue = data.queue || [];
+                        if (data.nextTeams) {
+                            if (data.nextTeams.team1) migratedQueue = [...data.nextTeams.team1, ...migratedQueue];
+                            if (data.nextTeams.team2) migratedQueue = [...data.nextTeams.team2, ...migratedQueue];
+                        }
+                        queue.value = ensureMatchesPlayed(migratedQueue);
+                        goalkeeperQueue.value = ensureMatchesPlayed(data.goalkeeperQueue || []);
+                        match.timerRunning = false;
+                    } else {
+                        localStorage.removeItem('futebolAppData');
+                    }
+                }
+            };
+
+            // --- AÇÕES ---
+            const resetAll = () => {
+                if(confirm("Limpar todos os dados?")){
+                    localStorage.removeItem('futebolAppData');
+                    location.reload();
+                }
+            };
+
+            const addPlayers = () => {
+                const process = (text, role) => {
+                    if(!text) return;
+                    text.split('\n').forEach(line => {
+                        const name = line.trim();
+                        if(name) {
+                            allPlayers.value.push({
+                                id: Date.now() + Math.random(),
+                                name, role, paid: false, arrived: false, matchesPlayed: 0
+                            });
+                        }
+                    });
+                };
+                process(input.goalkeepers, 'GK');
+                process(input.lines, 'LINE');
+                input.goalkeepers = '';
+                input.lines = '';
+                saveData();
+            };
+
+            const markAllPaid = () => {
+                if(confirm("Marcar TODOS os jogadores listados como PAGOS?")) {
+                    allPlayers.value.forEach(p => p.paid = true);
+                    saveData();
+                }
+            };
+
+            const markAllArrivedAndQueue = () => {
+                if(confirm("Marcar TODOS como 'Chegaram' e enviar os PAGOS para a fila de espera?")) {
+                    // Marca todos como "chegou"
+                    allPlayers.value.forEach(p => {
+                        p.arrived = true;
+                    });
+                    
+                    // Envia para a fila apenas os que estão pagos
+                    const paidPlayers = allPlayers.value.filter(p => p.paid);
+                    paidPlayers.forEach(p => {
+                        // Goleiros vão para a fila de goleiros, outros para a fila normal
+                        if (p.role === 'GK') {
+                            if (!goalkeeperQueue.value.find(q => q.id === p.id)) {
+                                goalkeeperQueue.value.push({ ...p });
+                            }
+                        } else {
+                            if (!queue.value.find(q => q.id === p.id)) {
+                                queue.value.push({ ...p });
+                            }
+                        }
+                    });
+                    
+                    // Remove do cadastro apenas os jogadores pagos (que foram para a fila)
+                    allPlayers.value = allPlayers.value.filter(p => !p.paid);
+                    saveData();
+                }
+            };
+
+            const onArrivedChange = (player) => {
+                if (player.arrived && player.paid) {
+                    // Goleiros vão para a fila de goleiros, outros para a fila normal
+                    if (player.role === 'GK') {
+                        if (!goalkeeperQueue.value.find(q => q.id === player.id)) {
+                            goalkeeperQueue.value.push({ ...player });
+                        }
+                    } else {
+                        if (!queue.value.find(q => q.id === player.id)) {
+                            queue.value.push({ ...player });
+                        }
+                    }
+                    // Remove do cadastro
+                    allPlayers.value = allPlayers.value.filter(p => p.id !== player.id);
+                }
+                saveData();
+            };
+
+            const onPaidChange = (player) => {
+                if (player.paid && player.arrived) {
+                    // Goleiros vão para a fila de goleiros, outros para a fila normal
+                    if (player.role === 'GK') {
+                        if (!goalkeeperQueue.value.find(q => q.id === player.id)) {
+                            goalkeeperQueue.value.push({ ...player });
+                        }
+                    } else {
+                        if (!queue.value.find(q => q.id === player.id)) {
+                            queue.value.push({ ...player });
+                        }
+                    }
+                    // Remove do cadastro
+                    allPlayers.value = allPlayers.value.filter(p => p.id !== player.id);
+                }
+                saveData();
+            };
+
+            const onDragStartFromRegister = (evt, player) => {
+                draggedItem = player;
+                sourceList = 'register';
+                evt.dataTransfer.effectAllowed = 'move';
+            };
+
+            const onDropOnRegister = (evt) => {
+                // Não faz nada ao soltar no cadastro (área apenas de origem)
+                draggedItem = null;
+                sourceList = null;
+            };
+
+            const removeFromQueue = (id) => {
+                if(confirm("Remover este jogador da fila de espera?")) {
+                    queue.value = queue.value.filter(p => p.id !== id);
+                    saveData();
+                }
+            };
+
+            const movePlayerUp = (id) => {
+                const index = queue.value.findIndex(p => p.id === id);
+                if (index > 0) {
+                    // Troca com o jogador acima
+                    [queue.value[index - 1], queue.value[index]] = [queue.value[index], queue.value[index - 1]];
+                    saveData();
+                }
+            };
+
+            const movePlayerDown = (id) => {
+                const index = queue.value.findIndex(p => p.id === id);
+                if (index < queue.value.length - 1) {
+                    // Troca com o jogador abaixo
+                    [queue.value[index], queue.value[index + 1]] = [queue.value[index + 1], queue.value[index]];
+                    saveData();
+                }
+            };
+
+            // Funções para a fila de goleiros
+            const removeFromGoalkeeperQueue = (id) => {
+                if(confirm("Remover este goleiro da fila de goleiros?")) {
+                    goalkeeperQueue.value = goalkeeperQueue.value.filter(p => p.id !== id);
+                    saveData();
+                }
+            };
+
+            const moveGoalkeeperUp = (id) => {
+                const index = goalkeeperQueue.value.findIndex(p => p.id === id);
+                if (index > 0) {
+                    [goalkeeperQueue.value[index - 1], goalkeeperQueue.value[index]] = [goalkeeperQueue.value[index], goalkeeperQueue.value[index - 1]];
+                    saveData();
+                }
+            };
+
+            const moveGoalkeeperDown = (id) => {
+                const index = goalkeeperQueue.value.findIndex(p => p.id === id);
+                if (index < goalkeeperQueue.value.length - 1) {
+                    [goalkeeperQueue.value[index], goalkeeperQueue.value[index + 1]] = [goalkeeperQueue.value[index + 1], goalkeeperQueue.value[index]];
+                    saveData();
+                }
+            };
+
+            const onDropOnGoalkeeperCard = (targetPlayerId) => {
+                if (!draggedItem) return;
+                
+                if (sourceList === 'goalkeeperQueue') {
+                    const fromIndex = goalkeeperQueue.value.findIndex(p => p.id === draggedItem.id);
+                    const toIndex = goalkeeperQueue.value.findIndex(p => p.id === targetPlayerId);
+                    
+                    if (fromIndex > -1 && toIndex > -1) {
+                        const [movedPlayer] = goalkeeperQueue.value.splice(fromIndex, 1);
+                        goalkeeperQueue.value.splice(toIndex, 0, movedPlayer);
+                    }
+                } else {
+                    if (sourceList === 'teamA') match.teamA = match.teamA.filter(p => p.id !== draggedItem.id);
+                    else if (sourceList === 'teamB') match.teamB = match.teamB.filter(p => p.id !== draggedItem.id);
+                    else if (sourceList === 'queue') queue.value = queue.value.filter(p => p.id !== draggedItem.id);
+                    
+                    const toIndex = goalkeeperQueue.value.findIndex(p => p.id === targetPlayerId);
+                    if(toIndex > -1) {
+                        goalkeeperQueue.value.splice(toIndex, 0, draggedItem);
+                    } else {
+                        goalkeeperQueue.value.push(draggedItem);
+                    }
+                }
+                
+                draggedItem = null;
+                sourceList = null;
+                saveData();
+            };
+
+            // Função para selecionar N elementos aleatórios de um array (sem modificar o original)
+            const selectRandom = (arr, count) => {
+                const indices = [];
+                const selected = [];
+                const available = [...arr];
+                
+                while (selected.length < count && available.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * available.length);
+                    selected.push(available.splice(randomIndex, 1)[0]);
+                }
+                
+                return selected;
+            };
+
+            // SORTEAR TIMES (a partir da fila de espera e fila de goleiros)
+            // Pega os PRIMEIROS jogadores das filas (ordem de chegada) e SORTEIA entre os times
+            const generateInitialTeams = () => {
+                if (queue.value.length === 0 && goalkeeperQueue.value.length === 0) {
+                    alert("As filas de espera estão vazias! Adicione jogadores primeiro.");
+                    return;
+                }
+
+                // Limpar times
+                match.teamA = [];
+                match.teamB = [];
+
+                // Função para sortear jogadores entre os times respeitando o limite
+                const sortearEntreTimesComLimite = (jogadores, limiteA, limiteB) => {
+                    const paraTimeA = [];
+                    const paraTimeB = [];
+                    
+                    for (const jogador of jogadores) {
+                        // Se ambos os times ainda têm vaga, sorteia
+                        if (paraTimeA.length < limiteA && paraTimeB.length < limiteB) {
+                            if (Math.random() < 0.5) {
+                                paraTimeA.push(jogador);
+                            } else {
+                                paraTimeB.push(jogador);
+                            }
+                        } else if (paraTimeA.length < limiteA) {
+                            // Só Time A tem vaga
+                            paraTimeA.push(jogador);
+                        } else if (paraTimeB.length < limiteB) {
+                            // Só Time B tem vaga
+                            paraTimeB.push(jogador);
+                        }
+                    }
+                    
+                    return { paraTimeA, paraTimeB };
+                };
+
+                // === GOLEIROS ===
+                // Pegar os 2 primeiros goleiros da fila (na ordem)
+                const goleirosSelecionados = goalkeeperQueue.value.slice(0, 2);
+                let goleirosUsados = 0;
+                
+                if (goleirosSelecionados.length >= 2) {
+                    // Tem 2 goleiros: sorteia qual vai para cada time
+                    const resultado = sortearEntreTimesComLimite(goleirosSelecionados, 1, 1);
+                    match.teamA.push(...resultado.paraTimeA);
+                    match.teamB.push(...resultado.paraTimeB);
+                    goleirosUsados = 2;
+                } else if (goleirosSelecionados.length === 1) {
+                    // Tem apenas 1 goleiro: sorteia para qual time vai
+                    const gk = goleirosSelecionados[0];
+                    if (Math.random() < 0.5) {
+                        match.teamA.push(gk);
+                    } else {
+                        match.teamB.push(gk);
+                    }
+                    goleirosUsados = 1;
+                }
+                // Se não houver goleiros, os times serão preenchidos apenas com jogadores de linha
+
+                // Remover goleiros usados da fila de goleiros
+                goalkeeperQueue.value = goalkeeperQueue.value.slice(goleirosUsados);
+
+                // === JOGADORES DE LINHA ===
+                // Quantos jogadores de linha precisamos para cada time
+                const linesNeededA = config.playersPerTeam - match.teamA.length;
+                const linesNeededB = config.playersPerTeam - match.teamB.length;
+                const totalLinesNeeded = linesNeededA + linesNeededB;
+
+                // Pegar os PRIMEIROS jogadores de linha da fila (na ordem de chegada)
+                const jogadoresLinhaSelecionados = queue.value.slice(0, totalLinesNeeded);
+                
+                // Sortear esses jogadores entre os times
+                const resultadoLinhas = sortearEntreTimesComLimite(jogadoresLinhaSelecionados, linesNeededA, linesNeededB);
+                match.teamA.push(...resultadoLinhas.paraTimeA);
+                match.teamB.push(...resultadoLinhas.paraTimeB);
+                
+                // Remover jogadores usados da fila
+                queue.value = queue.value.slice(jogadoresLinhaSelecionados.length);
+
+                // === SE AINDA FALTAM JOGADORES (por falta de goleiros) ===
+                // Completar com jogadores de linha da fila
+                const faltamA = config.playersPerTeam - match.teamA.length;
+                const faltamB = config.playersPerTeam - match.teamB.length;
+                
+                if (faltamA > 0 || faltamB > 0) {
+                    const jogadoresExtras = queue.value.slice(0, faltamA + faltamB);
+                    const resultadoExtras = sortearEntreTimesComLimite(jogadoresExtras, faltamA, faltamB);
+                    match.teamA.push(...resultadoExtras.paraTimeA);
+                    match.teamB.push(...resultadoExtras.paraTimeB);
+                    queue.value = queue.value.slice(jogadoresExtras.length);
+                }
+
+                // Marcar que o sorteio inicial foi feito
+                status.teamsGenerated = true;
+
+                resetTimer(true);
+                ui.showRegister = false;
+                saveData();
+            };
+
+            // Timer
+            const toggleTimer = () => {
+                match.timerRunning = !match.timerRunning;
+                if (match.timerRunning) {
+                    match.hasStarted = true;
+                    timerInterval = setInterval(() => {
+                        if (match.timeLeft > 0) {
+                            match.timeLeft--;
+                            saveData(); 
+                        } else {
+                            match.timerRunning = false;
+                            clearInterval(timerInterval);
+                            // Incrementar contador de partidas para jogadores em campo
+                            match.teamA.forEach(p => {
+                                p.matchesPlayed = (p.matchesPlayed || 0) + 1;
+                            });
+                            match.teamB.forEach(p => {
+                                p.matchesPlayed = (p.matchesPlayed || 0) + 1;
+                            });
+                            // Determinar vencedor da partida
+                            if (match.scoreA > match.scoreB) {
+                                match.lastWinner = 'A';
+                            } else if (match.scoreB > match.scoreA) {
+                                match.lastWinner = 'B';
+                            } else {
+                                match.lastWinner = null; // Empate
+                            }
+                            saveData();
+                            alert("Fim de Jogo!");
+                        }
+                    }, 1000);
+                } else {
+                    clearInterval(timerInterval);
+                    saveData();
+                }
+            };
+
+            const resetTimer = (isFirst) => {
+                clearInterval(timerInterval);
+                match.timerRunning = false;
+                match.hasStarted = false;
+                status.isFirstMatch = isFirst;
+                match.timeLeft = (isFirst ? config.timeFirstMatch : config.timeNormalMatch) * 60;
+                match.scoreA = 0;
+                match.scoreB = 0;
+                saveData();
+            };
+
+            const adjustTime = (seconds) => {
+                match.timeLeft = Math.max(0, match.timeLeft + seconds);
+                saveData();
+            };
+
+            const setTimeZero = () => {
+                match.timeLeft = 0;
+                saveData();
+            };
+
+            const adjustScore = (team, delta) => {
+                if(team === 'A') match.scoreA = Math.max(0, match.scoreA + delta);
+                else match.scoreB = Math.max(0, match.scoreB + delta);
+                saveData();
+            };
+
+            // --- ENCERRAR PARTIDA (apenas zera o cronômetro) ---
+            const endMatch = () => {
+                if(!confirm("Encerrar partida e zerar o cronômetro?")) return;
+                resetTimer(false);
+                saveData();
+            };
+
+            // --- PRÓXIMO (rotação baseada no placar) ---
+            const nextMatch = () => {
+                // Determinar vencedor pelo placar atual
+                let winner = null;
+                if (match.scoreA > match.scoreB) {
+                    winner = 'A';
+                } else if (match.scoreB > match.scoreA) {
+                    winner = 'B';
+                } else {
+                    winner = 'DRAW';
+                }
+
+                // Atualizar marcador de último vencedor
+                if (winner === 'DRAW') {
+                    match.lastWinner = null;
+                } else {
+                    match.lastWinner = winner;
+                }
+
+                // Função para substituir jogadores de linha de um time (mantém goleiro)
+                const replaceLinePlayers = (team) => {
+                    // Separar goleiro e jogadores de linha
+                    const gk = team.filter(p => p.role === 'GK');
+                    const linePlayers = team.filter(p => p.role !== 'GK');
+                    
+                    // Jogadores de linha vão para o final da fila
+                    linePlayers.forEach(p => queue.value.push(p));
+                    
+                    // Pegar 4 novos jogadores de linha do início da fila
+                    const newLinePlayers = queue.value.splice(0, 4);
+                    
+                    // Retornar time com goleiro + novos jogadores
+                    return [...gk, ...newLinePlayers];
+                };
+
+                // Função para substituir jogadores de linha E goleiro de um time perdedor
+                const replaceLosingTeam = (team) => {
+                    // Separar goleiro e jogadores de linha
+                    const currentGk = team.find(p => p.role === 'GK');
+                    const linePlayers = team.filter(p => p.role !== 'GK');
+                    
+                    // Jogadores de linha vão para o final da fila normal
+                    linePlayers.forEach(p => queue.value.push(p));
+                    
+                    // Pegar 4 novos jogadores de linha do início da fila
+                    const newLinePlayers = queue.value.splice(0, 4);
+                    
+                    // Verificar se há goleiro disponível na fila de goleiros
+                    let newGk = [];
+                    if (goalkeeperQueue.value.length > 0) {
+                        // Pega o primeiro goleiro da fila de goleiros
+                        const nextGk = goalkeeperQueue.value.shift();
+                        newGk = [nextGk];
+                        
+                        // Goleiro atual vai para o final da fila de goleiros
+                        if (currentGk) {
+                            goalkeeperQueue.value.push(currentGk);
+                        }
+                    } else {
+                        // Sem goleiro substituto, mantém o atual
+                        newGk = currentGk ? [currentGk] : [];
+                    }
+                    
+                    // Retornar time com novo goleiro + novos jogadores
+                    return [...newGk, ...newLinePlayers];
+                };
+
+                if (winner === 'A') {
+                    // Time A vence: Time B sai (incluindo goleiro), Time A fica
+                    match.teamB = replaceLosingTeam(match.teamB);
+                } else if (winner === 'B') {
+                    // Time B vence: Time A sai (incluindo goleiro), Time B fica
+                    match.teamA = replaceLosingTeam(match.teamA);
+                } else {
+                    // Empate: Ambos os times saem (incluindo goleiros, se houver substitutos)
+                    // Para empate, precisamos verificar quantos goleiros temos disponíveis
+                    const availableGks = goalkeeperQueue.value.length;
+                    
+                    if (availableGks >= 2) {
+                        // Há 2+ goleiros: ambos os times trocam goleiro
+                        match.teamA = replaceLosingTeam(match.teamA);
+                        match.teamB = replaceLosingTeam(match.teamB);
+                    } else if (availableGks === 1) {
+                        // Há apenas 1 goleiro: só um time troca (Time A tem prioridade)
+                        match.teamA = replaceLosingTeam(match.teamA);
+                        match.teamB = replaceLinePlayers(match.teamB); // Mantém goleiro do B
+                    } else {
+                        // Não há goleiros: ambos mantêm seus goleiros
+                        match.teamA = replaceLinePlayers(match.teamA);
+                        match.teamB = replaceLinePlayers(match.teamB);
+                    }
+                }
+
+                // Resetar cronômetro para próxima partida
+                resetTimer(false);
+                saveData();
+            };
+
+            // --- ROTACIONAR (pega próximos jogadores da fila, mantém goleiros) ---
+            const rotateTeams = () => {
+                if(!confirm("Rotacionar times? Os próximos jogadores da fila entrarão em campo.")) return;
+
+                // Separar goleiros dos times atuais (eles ficam)
+                const gkTeamA = match.teamA.filter(p => p.role === 'GK');
+                const gkTeamB = match.teamB.filter(p => p.role === 'GK');
+                
+                // Jogadores de linha dos times atuais vão para a fila
+                const linePlayersTeamA = match.teamA.filter(p => p.role !== 'GK');
+                const linePlayersTeamB = match.teamB.filter(p => p.role !== 'GK');
+                linePlayersTeamA.forEach(p => queue.value.push(p));
+                linePlayersTeamB.forEach(p => queue.value.push(p));
+
+                // Sempre 4 jogadores de linha por time (total 5 com goleiro)
+                const linePlayersNeeded = 4;
+
+                // Pegar os primeiros 4 jogadores da fila para o Time A
+                const newLinePlayersA = queue.value.splice(0, linePlayersNeeded);
+                
+                // Pegar os próximos 4 jogadores da fila para o Time B (5º, 6º, 7º, 8º)
+                const newLinePlayersB = queue.value.splice(0, linePlayersNeeded);
+
+                // Montar os times: goleiro + novos jogadores de linha
+                match.teamA = [...gkTeamA, ...newLinePlayersA];
+                match.teamB = [...gkTeamB, ...newLinePlayersB];
+
+                resetTimer(false);
+                saveData();
+            };
+
+            // --- LIMPAR TÁBUA (remove todos os jogadores dos times) ---
+            const clearTeams = () => {
+                if(!confirm("Limpar tábua? Todos os jogadores serão removidos dos times.")) return;
+
+                // Mover jogadores dos times para as filas corretas
+                match.teamA.forEach(p => {
+                    if (p.role === 'GK') goalkeeperQueue.value.push(p);
+                    else queue.value.push(p);
+                });
+                match.teamB.forEach(p => {
+                    if (p.role === 'GK') goalkeeperQueue.value.push(p);
+                    else queue.value.push(p);
+                });
+
+                match.teamA = [];
+                match.teamB = [];
+
+                saveData();
+            };
+
+            // --- SORTEAR TIMES (aleatório) ---
+            const shuffleTeams = () => {
+                if(!confirm("Sortear times? Os times serão formados aleatoriamente.")) return;
+
+                // Mover jogadores atuais dos times para as filas corretas
+                match.teamA.forEach(p => {
+                    if (p.role === 'GK') goalkeeperQueue.value.push(p);
+                    else queue.value.push(p);
+                });
+                match.teamB.forEach(p => {
+                    if (p.role === 'GK') goalkeeperQueue.value.push(p);
+                    else queue.value.push(p);
+                });
+                match.teamA = [];
+                match.teamB = [];
+
+                // Goleiros vêm da fila de goleiros, jogadores de linha da fila normal
+                const allGKs = [...goalkeeperQueue.value];
+                const allLines = [...queue.value];
+
+                // Função para embaralhar array (Fisher-Yates)
+                const shuffle = (arr) => {
+                    const shuffled = [...arr];
+                    for (let i = shuffled.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                    }
+                    return shuffled;
+                };
+
+                // Embaralhar goleiros e jogadores de linha
+                const shuffledGKs = shuffle(allGKs);
+                const shuffledLines = shuffle(allLines);
+
+                // Pegar 1 goleiro para cada time (se disponível)
+                const gkForTeamA = shuffledGKs.length > 0 ? [shuffledGKs.shift()] : [];
+                const gkForTeamB = shuffledGKs.length > 0 ? [shuffledGKs.shift()] : [];
+
+                // Sempre 4 jogadores de linha por time (total 5 com goleiro)
+                const linePlayersNeeded = 4;
+
+                // Pegar jogadores de linha para cada time
+                const linesForTeamA = shuffledLines.splice(0, linePlayersNeeded);
+                const linesForTeamB = shuffledLines.splice(0, linePlayersNeeded);
+
+                // Montar os times
+                match.teamA = [...gkForTeamA, ...linesForTeamA];
+                match.teamB = [...gkForTeamB, ...linesForTeamB];
+
+                // Recompor a fila de goleiros com os restantes
+                goalkeeperQueue.value = [...shuffledGKs];
+                // Recompor a fila com os jogadores de linha restantes
+                queue.value = [...shuffledLines];
+
+                resetTimer(true);
+                saveData();
+            };
+
+            // Drag & Drop
+            const onDragStart = (evt, player, listName) => {
+                draggedItem = player;
+                sourceList = listName;
+                evt.dataTransfer.effectAllowed = 'move';
+            };
+
+            const onDrop = (evt, targetList) => {
+                if (!draggedItem || sourceList === targetList) return;
+
+                // Se vem do cadastro (register), exibe avisos e adiciona à fila
+                if (sourceList === 'register') {
+                    if (targetList === 'queue') {
+                        let warnings = [];
+                        if (!draggedItem.paid) {
+                            warnings.push("⚠️ Este jogador ainda NÃO PAGOU!");
+                        }
+                        if (!draggedItem.arrived) {
+                            warnings.push("⚠️ Este jogador ainda NÃO CHEGOU!");
+                        }
+                        if (warnings.length > 0) {
+                            alert(warnings.join("\n"));
+                        }
+                        // Adiciona à fila mesmo assim
+                        if (!queue.value.find(q => q.id === draggedItem.id)) {
+                            queue.value.push({ ...draggedItem });
+                        }
+                        // Remove do cadastro
+                        allPlayers.value = allPlayers.value.filter(p => p.id !== draggedItem.id);
+                    }
+                    draggedItem = null;
+                    sourceList = null;
+                    saveData();
+                    return;
+                }
+
+                const removeFromList = (listName) => {
+                    if (listName === 'teamA') match.teamA = match.teamA.filter(p => p.id !== draggedItem.id);
+                    else if (listName === 'teamB') match.teamB = match.teamB.filter(p => p.id !== draggedItem.id);
+                    else if (listName === 'queue') queue.value = queue.value.filter(p => p.id !== draggedItem.id);
+                    else if (listName === 'goalkeeperQueue') goalkeeperQueue.value = goalkeeperQueue.value.filter(p => p.id !== draggedItem.id);
+                };
+                removeFromList(sourceList);
+
+                if (targetList === 'queue') queue.value.push(draggedItem); 
+                else if (targetList === 'teamA') match.teamA.push(draggedItem);
+                else if (targetList === 'teamB') match.teamB.push(draggedItem);
+                else if (targetList === 'goalkeeperQueue') goalkeeperQueue.value.push(draggedItem);
+
+                draggedItem = null;
+                saveData();
+            };
+
+            const onDropOnQueueCard = (targetPlayerId) => {
+                if (!draggedItem) return;
+                
+                if (sourceList === 'queue') {
+                    const fromIndex = queue.value.findIndex(p => p.id === draggedItem.id);
+                    const toIndex = queue.value.findIndex(p => p.id === targetPlayerId);
+                    
+                    if (fromIndex > -1 && toIndex > -1) {
+                        const [movedPlayer] = queue.value.splice(fromIndex, 1);
+                        queue.value.splice(toIndex, 0, movedPlayer);
+                    }
+                } else {
+                    if (sourceList === 'teamA') match.teamA = match.teamA.filter(p => p.id !== draggedItem.id);
+                    else if (sourceList === 'teamB') match.teamB = match.teamB.filter(p => p.id !== draggedItem.id);
+                    
+                    const toIndex = queue.value.findIndex(p => p.id === targetPlayerId);
+                    if(toIndex > -1) {
+                        queue.value.splice(toIndex, 0, draggedItem);
+                    } else {
+                        queue.value.push(draggedItem);
+                    }
+                }
+                
+                draggedItem = null;
+                sourceList = null;
+                saveData();
+            };
+
+            onMounted(() => {
+                loadData();
+            });
+
+            return {
+                config, status, ui, input, allPlayers, match, queue, goalkeeperQueue,
+                formattedTime, paidCount, arrivedCount,
+                addPlayers, resetAll, generateInitialTeams, markAllPaid, markAllArrivedAndQueue, onArrivedChange, onPaidChange, removeFromQueue, movePlayerUp, movePlayerDown,
+                removeFromGoalkeeperQueue, moveGoalkeeperUp, moveGoalkeeperDown, onDropOnGoalkeeperCard,
+                toggleTimer, resetTimer, adjustTime, setTimeZero, adjustScore, endMatch, nextMatch, rotateTeams, clearTeams, shuffleTeams,
+                onDragStart, onDragStartFromRegister, onDrop, onDropOnRegister, onDropOnQueueCard, saveData
+            };
+        }
+    });
+
+    app.component('player-card', {
+        props: ['player', 'index', 'mini', 'showRemove', 'showReorder', 'isFirst', 'isLast'],
+        template: '#player-card-template',
+        data() { return { isDragOver: false } },
+        methods: {
+            onDragOver() { this.isDragOver = true; },
+            onDrop(event) {
+                this.isDragOver = false;
+                this.$emit('drop-on-card', this.player.id);
+            }
+        }
+    });
+
+    app.mount('#app');
+</script>
+</body>
+</html>
