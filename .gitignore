@@ -1,0 +1,20 @@
+# Arquivos SQL com credenciais e estrutura do banco
+*.sql
+
+# Variáveis de ambiente (se criar no futuro)
+.env
+.env.local
+.env.*.local
+
+# Arquivos de IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operacional
+Thumbs.db
+.DS_Store
+
+# Configuração do Supabase
+config.js
