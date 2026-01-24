@@ -10,8 +10,69 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; overflow: hidden; } /* Remove scroll da página */
-        .draggable-item { cursor: grab; touch-action: none; }
+        
+        /* Ajustes para mobile */
+        @media (max-width: 640px) {
+            body { 
+                overflow-y: auto;
+                overflow-x: hidden;
+                height: auto;
+                min-height: 100vh;
+            }
+            
+            #app { 
+                min-height: 100vh;
+                height: auto;
+                overflow-y: visible;
+            }
+            
+            /* Garantir que seções não cortem conteúdo em mobile */
+            section {
+                min-height: fit-content;
+                height: auto !important;
+            }
+            
+            /* Garantir que botões sempre sejam visíveis */
+            button {
+                min-height: 36px;
+            }
+            
+            /* Container principal com scroll */
+            .grid {
+                height: auto;
+                min-height: fit-content;
+            }
+            
+            /* Garantir que cards de fila sejam visíveis */
+            section[class*="lg:col-span-3"] > div {
+                height: auto !important;
+                min-height: 200px;
+            }
+            
+            /* Garantir que box de goleiros seja visível */
+            section[class*="lg:col-span-3"] > div:last-child {
+                min-height: 150px;
+            }
+        }
+        .draggable-item { cursor: grab; }
         .draggable-item:active { cursor: grabbing; }
+        
+        /* Melhorar scroll touch em áreas scrolláveis */
+        .touch-pan-y {
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            touch-action: pan-y;
+        }
+        
+        /* Permitir scroll vertical mesmo em itens arrastáveis dentro de áreas scrolláveis */
+        .touch-pan-y .draggable-item {
+            touch-action: pan-y pan-x;
+        }
+        
+        /* Quando arrastando horizontalmente, permitir drag */
+        .touch-pan-y .draggable-item:active {
+            touch-action: none;
+        }
         .font-mono-nums { font-variant-numeric: tabular-nums; }
         
         /* Scrollbar fina e escura */
@@ -23,42 +84,42 @@
         .drag-over-item { border-top: 2px solid #34d399 !important; }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-100 h-screen w-screen flex flex-col text-xs overflow-hidden">
+<body class="bg-gray-950 text-gray-100 h-screen w-screen flex flex-col text-xs overflow-hidden sm:overflow-hidden">
 
-<div id="app" class="flex flex-col h-full w-full p-2 gap-2 max-w-[1600px] mx-auto">
+<div id="app" class="flex flex-col h-full sm:h-full w-full p-2 gap-2 max-w-[1600px] mx-auto overflow-y-auto sm:overflow-y-auto">
     
-    <header class="bg-gray-900 p-2 rounded-lg border border-gray-800 flex-shrink-0 flex justify-between items-center gap-2">
+    <header class="bg-gray-900 p-2 rounded-lg border border-gray-800 flex-shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
             <h1 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
                 <i class="ph ph-soccer-ball"></i> Gestão de Pelada
             </h1>
         </div>
         
-        <div class="flex items-center gap-3">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <div class="flex items-center gap-1">
                 <span class="text-[9px] text-gray-500 uppercase font-bold">Tempo:</span>
                 <span class="font-bold text-emerald-400 text-[10px]">{{ status.isFirstMatch ? '10 min' : '7 min' }}</span>
             </div>
 
-            <button @click="resetAll" class="text-red-400 hover:text-red-300 text-[10px] uppercase font-bold px-2 border-l border-gray-700">
+            <button @click="resetAll" class="text-red-400 hover:text-red-300 text-[10px] uppercase font-bold px-2 sm:border-l sm:border-gray-700 w-full sm:w-auto text-left sm:text-center">
                 Resetar
             </button>
         </div>
     </header>
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-2 flex-1 min-h-0">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-2 flex-1 sm:flex-1 min-h-0 h-auto sm:h-full">
         
-        <section class="lg:col-span-2 flex flex-col bg-gray-900 rounded-lg border border-gray-800 h-full overflow-hidden">
+        <section class="lg:col-span-2 flex flex-col bg-gray-900 rounded-lg border border-gray-800 h-auto sm:h-full overflow-visible sm:overflow-hidden">
             <div class="flex-shrink-0 border-b border-gray-800">
                 <div @click="ui.showRegister = !ui.showRegister" class="p-2 bg-gray-800 cursor-pointer flex justify-between items-center hover:bg-gray-750 transition">
                     <h2 class="font-bold text-gray-300 flex items-center gap-1 text-[11px]"><i class="ph ph-users"></i> Cadastro</h2>
                     <i class="ph text-xs" :class="ui.showRegister ? 'ph-caret-up' : 'ph-caret-down'"></i>
                 </div>
                 
-                <div v-show="ui.showRegister" class="p-2 space-y-1.5 bg-gray-900">
-                    <textarea v-model="input.goalkeepers" placeholder="Goleiros..." class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-[10px] h-12 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"></textarea>
-                    <textarea v-model="input.lines" placeholder="Jogadores..." class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-[10px] h-16 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"></textarea>
-                    <button @click="addPlayers" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 rounded text-[10px] uppercase tracking-wide transition">Adicionar</button>
+                <div v-show="ui.showRegister" class="p-2 space-y-1.5 bg-gray-900 flex-shrink-0">
+                    <textarea v-model="input.goalkeepers" placeholder="Goleiros..." class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-[10px] h-10 sm:h-12 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"></textarea>
+                    <textarea v-model="input.lines" placeholder="Jogadores..." class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-[10px] h-12 sm:h-16 focus:ring-1 focus:ring-emerald-500 outline-none resize-none"></textarea>
+                    <button @click="addPlayers" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 sm:py-1 rounded text-[10px] uppercase tracking-wide transition flex-shrink-0 min-h-[36px]">Adicionar</button>
                 </div>
             </div>
 
@@ -82,8 +143,15 @@
                 </div>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-1.5 bg-gray-900" @dragover.prevent @drop="onDropOnRegister($event)">
-                <ul class="space-y-1">
+            <div class="border-b border-gray-800 flex-shrink-0">
+                <div @click="ui.showPlayersList = !ui.showPlayersList" class="p-2 bg-gray-800 cursor-pointer flex justify-between items-center hover:bg-gray-750 transition">
+                    <h3 class="font-bold text-gray-300 flex items-center gap-1 text-[10px]">Lista de Jogadores</h3>
+                    <i class="ph text-xs" :class="ui.showPlayersList ? 'ph-caret-up' : 'ph-caret-down'"></i>
+                </div>
+            </div>
+            
+            <div v-show="ui.showPlayersList" :class="['overflow-y-auto', 'p-1.5', 'bg-gray-900', 'touch-pan-y', allPlayers.length === 0 ? 'h-16' : 'min-h-[200px] max-h-[400px]']" style="-webkit-overflow-scrolling: touch;" @dragover.prevent @drop="onDropOnRegister($event)">
+                <ul v-if="allPlayers.length > 0" class="space-y-1">
                     <li v-for="(p, idx) in allPlayers" :key="p.id" 
                         class="flex items-center justify-between bg-gray-800 p-1 rounded border border-gray-700 group hover:border-gray-600 transition draggable-item"
                         draggable="true"
@@ -103,17 +171,21 @@
                         </div>
                     </li>
                 </ul>
+                <div v-else class="h-full flex items-center justify-center opacity-30 text-[10px] italic">
+                    Nenhum jogador cadastrado
+                </div>
             </div>
             
         </section>
 
-        <section class="lg:col-span-7 flex flex-col gap-2 h-full min-h-0">
+        <section class="lg:col-span-7 flex flex-col gap-2 h-auto sm:h-full min-h-0">
             
             <div class="bg-gray-900 rounded-lg border border-gray-800 shadow relative flex-shrink-0">
                 <div class="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-yellow-500 via-gray-500 to-blue-500 opacity-60"></div>
                 
-                <div class="p-2 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
+                <div class="p-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <!-- Time Amarelo - aparece primeiro em mobile -->
+                    <div class="flex items-center gap-3 order-1 sm:order-none">
                         <div class="flex flex-col items-center">
                             <span class="text-[9px] font-bold text-yellow-400 uppercase">Time Amarelo</span>
                             <div class="flex items-center gap-1 bg-black/30 rounded p-0.5 border border-yellow-600/30">
@@ -124,7 +196,8 @@
                         </div>
                     </div>
 
-                    <div class="flex flex-col items-center">
+                    <!-- Cronômetro e controles - no meio -->
+                    <div class="flex flex-col items-center order-3 sm:order-none">
                         <div class="text-3xl font-mono-nums font-bold tracking-widest leading-none" :class="{'text-red-500 animate-pulse': match.timeLeft < 60 && match.timeLeft > 0, 'text-white': match.timeLeft >= 60}">
                             {{ formattedTime }}
                         </div>
@@ -139,8 +212,8 @@
                             </button>
                         </div>
                         
-                        <!-- Controles de ajuste de tempo -->
-                        <div class="flex gap-1 mt-1.5">
+                        <!-- Controles de ajuste de tempo - quebra em múltiplas linhas em mobile -->
+                        <div class="flex flex-wrap gap-1 mt-1.5 justify-center max-w-full">
                             <button @click="setTimeZero" class="px-1.5 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-[9px] font-bold border border-gray-600 transition" title="Zerar cronômetro">
                                 0s
                             </button>
@@ -165,7 +238,8 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-3">
+                    <!-- Time Azul - aparece depois em mobile -->
+                    <div class="flex items-center gap-3 order-2 sm:order-none">
                          <div class="flex flex-col items-center">
                             <span class="text-[9px] font-bold text-blue-400 uppercase">Time Azul</span>
                             <div class="flex items-center gap-1 bg-black/30 rounded p-0.5 border border-blue-600/30">
@@ -178,16 +252,17 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-2 flex-1 min-h-0">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 min-h-0">
                 <div class="bg-yellow-950/30 border border-yellow-500/30 rounded-lg flex flex-col shadow-inner overflow-hidden" 
                      @dragover.prevent @drop="onDrop($event, 'teamA')">
-                    <div class="bg-yellow-900/30 p-1 border-b border-yellow-500/20 text-center flex-shrink-0 flex items-center justify-center gap-1.5">
+                    <div @click="ui.showTeamA = !ui.showTeamA" class="bg-yellow-900/30 p-1 border-b border-yellow-500/20 text-center flex-shrink-0 flex items-center justify-center gap-1.5 cursor-pointer hover:bg-yellow-900/40 transition">
                         <i v-if="match.lastWinner === 'A'" class="ph ph-crown text-yellow-300 text-sm" title="Vencedor da última partida"></i>
                         <span class="text-[9px] font-bold text-yellow-400 uppercase tracking-widest">TIME AMARELO</span>
                         <i v-if="match.lastWinner === 'A'" class="ph ph-crown text-yellow-300 text-sm" title="Vencedor da última partida"></i>
+                        <i class="ph text-xs ml-auto mr-1" :class="ui.showTeamA ? 'ph-caret-up' : 'ph-caret-down'"></i>
                     </div>
-                    <div class="p-1.5 flex-1 overflow-y-auto space-y-1">
-                        <player-card v-for="p in match.teamA" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamA')"></player-card>
+                    <div v-show="ui.showTeamA" :class="['p-1.5', 'overflow-y-auto', 'space-y-1', 'touch-pan-y', match.teamA.length === 0 ? 'h-16' : 'min-h-[200px] max-h-[400px]']" style="-webkit-overflow-scrolling: touch;">
+                        <player-card v-if="match.teamA.length > 0" v-for="p in match.teamA" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamA')"></player-card>
                         <div v-if="match.teamA.length === 0" class="h-full flex items-center justify-center opacity-20 text-[10px] italic border-2 border-dashed border-gray-700 m-2 rounded">
                             Arrastar Jogadores
                         </div>
@@ -196,13 +271,14 @@
 
                 <div class="bg-blue-950/30 border border-blue-500/30 rounded-lg flex flex-col shadow-inner overflow-hidden"
                      @dragover.prevent @drop="onDrop($event, 'teamB')">
-                    <div class="bg-blue-900/30 p-1 border-b border-blue-500/20 text-center flex-shrink-0 flex items-center justify-center gap-1.5">
+                    <div @click="ui.showTeamB = !ui.showTeamB" class="bg-blue-900/30 p-1 border-b border-blue-500/20 text-center flex-shrink-0 flex items-center justify-center gap-1.5 cursor-pointer hover:bg-blue-900/40 transition">
                         <i v-if="match.lastWinner === 'B'" class="ph ph-crown text-blue-300 text-sm" title="Vencedor da última partida"></i>
                         <span class="text-[9px] font-bold text-blue-400 uppercase tracking-widest">TIME AZUL</span>
                         <i v-if="match.lastWinner === 'B'" class="ph ph-crown text-blue-300 text-sm" title="Vencedor da última partida"></i>
+                        <i class="ph text-xs ml-auto mr-1" :class="ui.showTeamB ? 'ph-caret-up' : 'ph-caret-down'"></i>
                     </div>
-                    <div class="p-1.5 flex-1 overflow-y-auto space-y-1">
-                        <player-card v-for="p in match.teamB" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamB')"></player-card>
+                    <div v-show="ui.showTeamB" :class="['p-1.5', 'overflow-y-auto', 'space-y-1', 'touch-pan-y', match.teamB.length === 0 ? 'h-16' : 'min-h-[200px] max-h-[400px]']" style="-webkit-overflow-scrolling: touch;">
+                        <player-card v-if="match.teamB.length > 0" v-for="p in match.teamB" :key="p.id" :player="p" @dragstart="onDragStart($event, p, 'teamB')"></player-card>
                          <div v-if="match.teamB.length === 0" class="h-full flex items-center justify-center opacity-20 text-[10px] italic border-2 border-dashed border-gray-700 m-2 rounded">
                             Arrastar Jogadores
                         </div>
@@ -211,7 +287,7 @@
             </div>
 
             <div class="bg-gray-900 p-2 rounded-lg border border-gray-800 flex-shrink-0">
-                <div class="flex gap-2">
+                <div class="flex flex-col sm:flex-row gap-2">
                     <button @click="generateInitialTeams" :disabled="status.teamsGenerated" class="flex-1 bg-purple-700 hover:bg-purple-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2 rounded shadow flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide transition transform active:scale-[0.99]">
                         <i class="ph ph-shuffle text-sm"></i> Sortear Times
                     </button>
@@ -229,15 +305,19 @@
 
         </section>
 
-        <section class="lg:col-span-3 flex flex-col gap-2 h-full min-h-0 overflow-hidden">
+        <section class="lg:col-span-3 flex flex-col gap-2 h-auto sm:h-full min-h-0 overflow-visible sm:overflow-hidden">
             
-            <div class="bg-gray-900 rounded-lg border border-gray-800 flex flex-col overflow-hidden flex-1 min-h-0">
-                <div class="p-1.5 bg-gray-800 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+            <div :class="['bg-gray-900', 'rounded-lg', 'border', 'border-gray-800', 'flex', 'flex-col', 'overflow-hidden', queue.length === 0 ? 'h-auto' : 'h-auto sm:flex-1']">
+                <div @click="ui.showQueue = !ui.showQueue" class="p-1.5 bg-gray-800 border-b border-gray-700 flex justify-between items-center flex-shrink-0 cursor-pointer hover:bg-gray-750 transition">
                     <h3 class="text-[10px] font-bold text-yellow-500 uppercase tracking-wider">Fila de Espera</h3>
-                    <span class="bg-gray-950 text-[9px] px-1.5 rounded text-gray-400 border border-gray-700">{{ queue.length }}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-gray-950 text-[9px] px-1.5 rounded text-gray-400 border border-gray-700">{{ queue.length }}</span>
+                        <i class="ph text-xs" :class="ui.showQueue ? 'ph-caret-up' : 'ph-caret-down'"></i>
+                    </div>
                 </div>
-                <div class="flex-1 p-1.5 overflow-y-auto bg-black/20" @dragover.prevent @drop="onDrop($event, 'queue')">
-                    <div class="space-y-0.5"> <player-card 
+                <div v-show="ui.showQueue" :class="['p-1.5', 'overflow-y-auto', 'bg-black/20', 'touch-pan-y', queue.length === 0 ? 'h-16' : 'min-h-[200px] max-h-[400px]']" style="-webkit-overflow-scrolling: touch;" @dragover.prevent @drop="onDrop($event, 'queue')">
+                    <div v-if="queue.length > 0" class="space-y-0.5">
+                        <player-card 
                             v-for="(p, index) in queue" 
                             :key="p.id" 
                             :player="p" 
@@ -253,23 +333,26 @@
                             @move-up="movePlayerUp"
                             @move-down="movePlayerDown"
                         ></player-card>
-                        <div v-if="queue.length === 0" class="text-center text-gray-600 text-[10px] py-10 italic">
-                            Ninguém na espera
-                        </div>
+                    </div>
+                    <div v-else class="h-full flex items-center justify-center opacity-30 text-[10px] italic">
+                        Ninguém na espera
                     </div>
                 </div>
             </div>
 
             <!-- Box exclusivo para Goleiros -->
-            <div class="bg-gray-900 rounded-lg border border-yellow-600/40 flex flex-col overflow-hidden flex-shrink-0" style="max-height: 35%;">
-                <div class="p-1.5 bg-yellow-900/30 border-b border-yellow-600/30 flex justify-between items-center flex-shrink-0">
+            <div :class="['bg-gray-900', 'rounded-lg', 'border', 'border-yellow-600/40', 'flex', 'flex-col', 'overflow-hidden', goalkeeperQueue.length === 0 ? 'h-auto' : 'h-auto sm:flex-shrink-0 sm:max-h-[35%]']">
+                <div @click="ui.showGoalkeeperQueue = !ui.showGoalkeeperQueue" class="p-1.5 bg-yellow-900/30 border-b border-yellow-600/30 flex justify-between items-center flex-shrink-0 cursor-pointer hover:bg-yellow-900/40 transition">
                     <h3 class="text-[10px] font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-1">
                         <i class="ph ph-hand-fist"></i> Goleiros (GK's)
                     </h3>
-                    <span class="bg-gray-950 text-[9px] px-1.5 rounded text-yellow-400 border border-yellow-600/50">{{ goalkeeperQueue.length }}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-gray-950 text-[9px] px-1.5 rounded text-yellow-400 border border-yellow-600/50">{{ goalkeeperQueue.length }}</span>
+                        <i class="ph text-xs" :class="ui.showGoalkeeperQueue ? 'ph-caret-up' : 'ph-caret-down'"></i>
+                    </div>
                 </div>
-                <div class="flex-1 p-1.5 overflow-y-auto bg-yellow-950/10" @dragover.prevent @drop="onDrop($event, 'goalkeeperQueue')">
-                    <div class="space-y-0.5">
+                <div v-show="ui.showGoalkeeperQueue" :class="['p-1.5', 'overflow-y-auto', 'bg-yellow-950/10', 'touch-pan-y', goalkeeperQueue.length === 0 ? 'h-16' : 'min-h-[150px] max-h-[300px]']" style="-webkit-overflow-scrolling: touch;" @dragover.prevent @drop="onDrop($event, 'goalkeeperQueue')">
+                    <div v-if="goalkeeperQueue.length > 0" class="space-y-0.5">
                         <player-card 
                             v-for="(p, index) in goalkeeperQueue" 
                             :key="p.id" 
@@ -286,9 +369,9 @@
                             @move-up="moveGoalkeeperUp"
                             @move-down="moveGoalkeeperDown"
                         ></player-card>
-                        <div v-if="goalkeeperQueue.length === 0" class="text-center text-gray-600 text-[10px] py-6 italic">
-                            Nenhum goleiro na espera
-                        </div>
+                    </div>
+                    <div v-else class="h-full flex items-center justify-center opacity-30 text-[10px] italic">
+                        Nenhum goleiro na espera
                     </div>
                 </div>
             </div>
@@ -356,7 +439,14 @@
                 lastUpdate: Date.now()
             });
 
-            const ui = reactive({ showRegister: true });
+            const ui = reactive({ 
+                showRegister: true,
+                showPlayersList: true,
+                showTeamA: true,
+                showTeamB: true,
+                showQueue: true,
+                showGoalkeeperQueue: true
+            });
             const input = reactive({ goalkeepers: '', lines: '' });
             
             const allPlayers = ref([]); 
